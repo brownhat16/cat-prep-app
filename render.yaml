@@ -3,17 +3,13 @@ services:
     name: cat-backend
     env: python
     rootDir: backend
-    plan: starter
+    plan: free
     buildCommand: ./build.sh
     startCommand: ./start.sh
     healthCheckPath: /healthz
-    disk:
-      name: cat-backend-data
-      mountPath: /var/data
-      sizeGB: 1
     envVars:
       - key: DATABASE_URL
-        value: file:/var/data/dev.db
+        value: file:./dev.db
       - key: PINECONE_INDEX_NAME
         value: cat-prep-index
       - key: BACKEND_CORS_ORIGINS
