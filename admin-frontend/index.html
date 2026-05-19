@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CAT Admin Frontend</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="topbar">
+        <div>
+          <div class="eyebrow">Admin Operations Console</div>
+          <h1 class="title">CAT Ingestion Web Control</h1>
+          <p class="subtitle">
+            Separate desktop admin frontend for bulk PDF upload, ingestion tracking,
+            backend logs, and live Pinecone vector monitoring.
+          </p>
+        </div>
+        <div class="top-status">
+          <div id="backend-pill" class="pill">
+            <span class="pill-dot"></span>
+            <span>Checking backend…</span>
+          </div>
+          <div id="vector-pill" class="pill">
+            <span class="pill-dot"></span>
+            <span>Checking Pinecone…</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="layout">
+        <aside class="stack">
+          <article class="card">
+            <header class="card-header">
+              <h2>Upload PDFs</h2>
+              <p>Queue one or many CAT papers. The backend will retry temporary model failures automatically.</p>
+            </header>
+            <div class="card-body">
+              <form id="upload-form" class="upload-panel">
+                <div class="dropzone">
+                  <input id="file-input" type="file" accept="application/pdf" multiple />
+                </div>
+                <div id="selected-files" class="selected-files"></div>
+                <div class="button-row">
+                  <button id="upload-button" class="primary" type="submit">Upload Files</button>
+                  <button id="refresh-button" class="secondary" type="button">Refresh</button>
+                </div>
+                <div id="upload-status" class="status-text"></div>
+              </form>
+            </div>
+          </article>
+
+          <article class="card">
+            <header class="card-header">
+              <h2>System Metrics</h2>
+              <p>Quick visibility into vectors, upload queue activity, and current backend state.</p>
+            </header>
+            <div class="card-body">
+              <div class="metrics">
+                <div class="metric">
+                  <div class="metric-label">Total Vectors</div>
+                  <div class="metric-value" id="metric-vectors">-</div>
+                  <div class="metric-note" id="vector-text">Waiting for first check…</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Tracked Uploads</div>
+                  <div class="metric-value" id="metric-uploads">0</div>
+                  <div class="metric-note">Recent queued and completed jobs</div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Upload Feed</div>
+                  <div class="metric-value" id="metric-logs">0 tracked</div>
+                  <div class="metric-note">Live job list count</div>
+                </div>
+              </div>
+            </div>
+          </article>
+        </aside>
+
+        <section class="main-grid">
+          <article class="card wide">
+            <header class="card-header">
+              <h2>Upload Jobs</h2>
+              <p>Each file shows attempts, retry schedule, vector counts before and after, and final status.</p>
+            </header>
+            <div class="card-body pane-scroll" id="uploads"></div>
+          </article>
+
+          <article class="card wide">
+            <header class="card-header">
+              <h2>Backend Logs</h2>
+              <p>Recent ingest log lines from the backend worker, including retry and upsert events.</p>
+            </header>
+            <div class="card-body pane-scroll" id="logs"></div>
+          </article>
+        </section>
+      </section>
+    </main>
+
+    <script src="./config.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>

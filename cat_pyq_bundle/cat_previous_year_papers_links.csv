@@ -1,0 +1,45 @@
+year,slot,official_status,link_type,source,source_url,notes
+2024,Slot 1,official-style third-party PDF,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2024/12/CAT-2024-Slot-01-Final-with-Answer-Keys.pdf,Verified direct PDF from Bodhee Prep hub
+2024,Slot 2,official-style third-party PDF,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2024/12/CAT-2024-Slot-02-Final-with-Answer-Keys.pdf,Verified direct PDF from Bodhee Prep hub
+2024,Slot 3,official-style third-party page,landing_page,Toprankers,https://www.toprankers.com/cat-2024-question-paper/,Use landing page because slot-3 direct link was not reliably exposed in browsing
+2023,Slot 1,official-style third-party PDF,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2023/12/CAt-2023-Question-Paper-slot-01-answer-keys-Bodheeprep.pdf,Verified direct PDF
+2023,Slot 2,official-style third-party PDF,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2023/12/CAt-2023-Question-Paper-slot-02-answer-keys-Bodheeprep.pdf,Verified direct PDF
+2023,Slot 3,official-style third-party PDF,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2023/12/CAt-2023-Question-Paper-slot-03.pdf,Verified direct PDF
+2022,Slot 1,official-style third-party PDF,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2022/12/CAT-2022-Question-Paper-Slot-1-with-Answer-Keys-Bodhee-Prep.pdf,Verified direct PDF
+2022,Slot 2,official-style third-party PDF,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2024/12/CAT-2022-Question-Paper-slot-2-with-Answer-Keys-by-Bodhee-Prep.pdf,Verified direct PDF
+2022,Slot 3,official-style third-party PDF,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2024/12/CAT-2022-Question-Paper-slot-3-with-Answer-Keys-by-Bodhee-Prep.pdf,Verified direct PDF
+2021,Slot 1,officially released per source,landing_page,AglaSem,https://admission.aglasem.com/cat-2021-question-paper/,Landing page includes slot 1/2/3 PDF links
+2021,Slot 2,officially released per source,landing_page,AglaSem,https://admission.aglasem.com/cat-2021-question-paper/,Landing page includes slot 1/2/3 PDF links
+2021,Slot 3,officially released per source,landing_page,AglaSem,https://admission.aglasem.com/cat-2021-question-paper/,Landing page includes slot 1/2/3 PDF links
+2020,Slot 1,official-style third-party PDF,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2020/12/CAT-2020-Question-paper-with-Solutions-Slot-1-Bodhee-Prep.pdf,Verified direct PDF
+2020,Slot 2,official-style third-party PDF,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2020/12/CAT-2020-Question-paper-with-Solutions-Slot-2-Bodhee-Prep.pdf,Verified direct PDF
+2020,Slot 3,official-style third-party PDF,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2020/12/CAT-2020-Question-paper-with-Solutions-Slot-3-Bodhee-Prep.pdf,Verified direct PDF
+2019,Slot 1,official-style third-party page,landing_page,AglaSem,https://admission.aglasem.com/cat-2019-question-paper-with-answers/,Landing page for both slots
+2019,Slot 2,official-style third-party PDF,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2020/12/CAT-2019-OFFICIAL-question-paper-solution-slot-2-Bodheeprep.pdf,Verified direct PDF
+2018,Slot 1,official-style third-party PDF,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2019/04/CAT-2018-question-paper-with-Solution-SLOT-1-Bodhee-Prep.pdf,Verified direct PDF
+2018,Slot 2,official-style third-party page,landing_page,AglaSem,https://admission.aglasem.com/cat-2018-question-paper-with-answers/,Landing page for both slots
+2017,Slot 1,official-style third-party PDF,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-2017-Question-Paper-with-Solution-SLOT-1.pdf,Verified direct PDF
+2017,Slot 2,official-style third-party PDF,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-2017-Question-Paper-with-Solution-SLOT-2.pdf,Verified direct PDF
+2012,Single paper,unofficial or memory-based per Bodhee note,landing_page,AglaSem,https://admission.aglasem.com/cat-2012-previous-year-question-paper-answers/,Year page
+2011,Single paper,unofficial or memory-based per Bodhee note,landing_page,AglaSem,https://admission.aglasem.com/cat-2011-previous-year-question-paper-answers/,Year page
+2010,Single paper,unofficial or memory-based per Bodhee note,landing_page,AglaSem,https://admission.aglasem.com/cat-2010-previous-year-question-paper-answers/,Year page
+2009,Single paper,unofficial or memory-based per Bodhee note,landing_page,AglaSem,https://admission.aglasem.com/cat-2009-previous-year-question-paper-answers/,Year page
+2008,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-2008-Question-Paper-with-Solution.pdf,Verified direct PDF
+2007,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-2007-Question-Paper-with-Solution.pdf,Verified direct PDF
+2006,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-2006-Question-Paper-with-Solution.pdf,Verified direct PDF
+2005,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-2005-Question-Paper-with-Solution.pdf,Verified direct PDF
+2004,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-2004-Question-Paper-with-Solution.pdf,Verified direct PDF
+2003,Retest,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-2003-R-Question-Paper-with-Solution.pdf,Verified direct PDF
+2003,Main,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-2003-L-Question-Paper-with-Solution.pdf,Verified direct PDF
+2002,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-2002-Question-Paper-with-Solution.pdf,Verified direct PDF
+2001,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-2001-Question-Paper-with-Solution.pdf,Verified direct PDF
+2000,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-2000-Question-Paper-with-Solution.pdf,Verified direct PDF
+1999,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-1999-Question-Paper-with-Solution.pdf,Verified direct PDF
+1998,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-1998-Question-Paper-with-Solution.pdf,Verified direct PDF
+1997,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-1997-Question-Paper-with-Solution.pdf,Verified direct PDF
+1996,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-1996-Question-Paper-with-Solution.pdf,Verified direct PDF
+1995,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-1995-Question-Paper-with-Solution.pdf,Verified direct PDF
+1994,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-1994-Question-Paper-with-Solution.pdf,Verified direct PDF
+1993,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-1993-Question-Paper-with-Solution.pdf,Verified direct PDF
+1992,Single paper,paper-pencil era,landing_page,Bodhee Prep,https://bodheeprep.com/cat-question-paper-previous-years-pdf,1992 entry is listed on the hub; direct PDF URL was not reliably exposed during browsing
+1991,Single paper,paper-pencil era,direct_pdf,Bodhee Prep,https://bodheeprep.com/wp-content/uploads/2021/01/CAT-1991-Question-Paper-with-Solution.pdf,Verified direct PDF

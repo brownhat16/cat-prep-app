@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+prisma
+google-genai
+pinecone
+pypdf2
+pdfplumber
+python-dotenv
+pydantic
+python-multipart

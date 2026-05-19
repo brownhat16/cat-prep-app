@@ -1,0 +1,62 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider             = "prisma-client-py"
+  interface            = "asyncio"
+  recursive_type_depth = 5
+}
+
+model MockTest {
+  id        String            @id @default(uuid())
+  title     String
+  duration  Int
+  createdAt DateTime          @default(now())
+  attempts  QuestionAttempt[]
+}
+
+model Question {
+  id           String            @id @default(uuid())
+  pineconeId   String?
+  section      String
+  topic        String
+  questionText String
+  options      String // JSON string
+  type         String // MCQ, TITA
+  answer       String
+  conceptHint  String?
+  difficulty   String?
+  attempts     QuestionAttempt[]
+}
+
+model QuestionAttempt {
+  id          String    @id @default(uuid())
+  mockTestId  String?
+  mockTest    MockTest? @relation(fields: [mockTestId], references: [id])
+  questionId  String
+  question    Question  @relation(fields: [questionId], references: [id])
+  timeSpentMs Int
+  isCorrect   Boolean
+  userAnswer  String?
+  status      String // answered, unanswered, marked
+  createdAt   DateTime  @default(now())
+}
+
+model Flashcard {
+  id             String            @id @default(uuid())
+  conceptName    String
+  explanation    String
+  topic          String
+  nextReviewDate DateTime          @default(now())
+  reviews        FlashcardReview[]
+}
+
+model FlashcardReview {
+  id          String    @id @default(uuid())
+  flashcardId String
+  flashcard   Flashcard @relation(fields: [flashcardId], references: [id])
+  rating      String // Hard, Good, Easy
+  createdAt   DateTime  @default(now())
+}
