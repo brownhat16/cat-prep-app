@@ -41,6 +41,10 @@ export const flashcardService = {
     const response = await apiClient.get('/flashcards/');
     return response.data;
   },
+  generateFlashcards: async (topic: string, count: number = 5) => {
+    const response = await apiClient.post('/generate-flashcards/', { topic, count });
+    return response.data;
+  },
   reviewFlashcard: async (flashcardId: string, difficulty: "Hard" | "Good" | "Easy") => {
     const response = await apiClient.post('/flashcards/review', { flashcardId, difficulty });
     return response.data;

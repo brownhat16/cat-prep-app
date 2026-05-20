@@ -1,16 +1,53 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, Pressable, Image, ScrollView, Animated } from 'react-native';
-import { Menu, RefreshCcw, Volume2, Hand } from 'lucide-react-native';
+import { View, Text, Pressable, Image, ScrollView, Animated, ActivityIndicator } from 'react-native';
+import { Menu, RefreshCcw, Volume2, Hand, Sparkles } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { flashcardService } from '../../api/client';
+import { usePuter } from '../../providers/PuterProvider';
 
 export default function Flashcards() {
   const insets = useSafeAreaInsets();
   const [flipped, setFlipped] = useState(false);
   const [flashcards, setFlashcards] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [generating, setGenerating] = useState(false);
+  const [selectedTopic, setSelectedTopic] = useState('Algebra');
   const flipAnim = useRef(new Animated.Value(0)).current;
+  const { isSignedIn, chat: puterChat } = usePuter();
+
+  const topics = ['Algebra', 'Probability', 'Geometry', 'Number Systems', 'Permutations', 'Time & Work', 'Profit & Loss', 'Averages'];
+
+  const handleGenerateFlashcards = async () => {
+    setGenerating(true);
+    try {
+      const data = await flashcardService.generateFlashcards(selectedTopic, 5);
+      if (data?.flashcards?.length > 0) {
+        setFlashcards(data.flashcards);
+        setCurrentIndex(0);
+        if (flipped) flipCard();
+      }
+    } catch (error) {
+      console.warn('Backend flashcard gen failed, trying Puter...', error);
+      if (isSignedIn) {
+        try {
+          const prompt = `Generate 5 CAT exam flashcards for "${selectedTopic}". Return ONLY JSON array: [{"front":"...","back":"...","explanation":"...","topic":"${selectedTopic}"}]`;
+          const text = await puterChat(prompt, 'claude-sonnet-4-20250514');
+          let cleaned = text.trim();
+          if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
+          if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
+          if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
+          const cards = JSON.parse(cleaned.trim());
+          cards.forEach((c: any, i: number) => { c.id = `puter-${Date.now()}-${i}`; });
+          setFlashcards(cards);
+          setCurrentIndex(0);
+          if (flipped) flipCard();
+        } catch (pe) { console.error('Puter flashcard gen failed:', pe); }
+      }
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   React.useEffect(() => {
     const loadFlashcards = async () => {
@@ -107,7 +144,36 @@ export default function Flashcards() {
             <Text className="text-[10px] text-secondary tracking-widest font-medium">{currentCard?.topic?.toUpperCase() || "UNKNOWN"}</Text>
           </View>
         </View>
-      </View>
+        </View>
+
+        {/* Topic Selector & Generate */}
+        <View className="w-full max-w-md mb-4">
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
+            {topics.map((t) => (
+              <Pressable
+                key={t}
+                onPress={() => setSelectedTopic(t)}
+                className={`px-3 py-2 rounded-full border ${selectedTopic === t ? 'bg-primary/20 border-primary/50' : 'border-outline-variant/50 bg-surface-container-high'}`}
+              >
+                <Text className={`text-xs font-medium ${selectedTopic === t ? 'text-primary' : 'text-on-surface-variant'}`}>{t}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+          <Pressable
+            onPress={handleGenerateFlashcards}
+            disabled={generating}
+            className="mt-3 py-3 rounded-xl bg-secondary-container/30 border border-secondary/30 items-center flex-row justify-center gap-2 active:opacity-80"
+          >
+            {generating ? (
+              <ActivityIndicator size="small" color="#ddb7ff" />
+            ) : (
+              <Sparkles color="#ddb7ff" size={18} />
+            )}
+            <Text className="text-sm font-semibold text-secondary">
+              {generating ? 'Generating...' : `Generate ${selectedTopic} Flashcards`}
+            </Text>
+          </Pressable>
+        </View>
 
       {/* Flashcard Container */}
       {currentCard ? (
