@@ -42,7 +42,7 @@ export default function Home() {
           <View className="bg-surface-container-low/50 p-4 rounded-lg border border-outline-variant/50">
             <Text className="text-xs font-medium text-primary tracking-widest mb-1">CURRENT FOCUS</Text>
             <Text className="text-lg font-semibold text-on-surface mb-4">Data Interpretation: Radar Charts</Text>
-            <Link href="/quick-solve" asChild>
+            <Link href="./quick-solve" asChild>
               <Pressable className="bg-primary-container py-2 px-6 rounded-lg items-center active:opacity-80">
                 <Text className="text-on-primary-container font-semibold">Continue Learning</Text>
               </Pressable>
@@ -128,7 +128,7 @@ export default function Home() {
             </Pressable>
           </Link>
           
-          <Link href="/quick-solve" asChild>
+          <Link href="./quick-solve" asChild>
             <Pressable className="w-[48%] glass-card rounded-xl p-4 items-center active:opacity-80">
               <View className="w-12 h-12 bg-tertiary-container/10 rounded-full items-center justify-center mb-3">
                 <Swords color="#ff7e2d" size={24} />
@@ -199,7 +199,7 @@ export default function Home() {
 
       {/* BottomNavBar */}
       <View className="absolute bottom-0 w-full bg-surface-container/90 border-t border-outline-variant/20 flex-row justify-around items-center h-20" style={{ paddingBottom: insets.bottom }}>
-        <Link href="/quick-solve" asChild>
+        <Link href="./quick-solve" asChild>
           <Pressable className="items-center opacity-70">
             <Swords color="#c1c7d3" size={24} />
             <Text className="text-[10px] font-medium tracking-widest text-on-surface-variant mt-1">Arena</Text>

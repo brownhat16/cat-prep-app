@@ -1,53 +1,140 @@
-import React, { useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, Pressable, Image, ActivityIndicator } from 'react-native';
-import { Menu, Lightbulb, Bot, Zap } from 'lucide-react-native';
+import { Menu, Lightbulb, Bot } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { aiService } from '../../api/client';
-import { loadArenaQueue, loadSeenArenaQuestions, mergeArenaQueue, saveArenaQueue, shiftArenaQueue } from '../../lib/studyQueue';
 
 type ArenaQuestion = {
   text: string;
   hint: string;
   options: string[];
-};
-
-type QueuedArenaQuestion = ArenaQuestion & {
   source: 'gemini' | 'puter' | 'local';
 };
 
+const NEXT_QUESTION_KEY = 'arena:next_question:v1';
+const FALLBACK_INDEX_KEY = 'arena:fallback_index:v1';
+
 const INITIAL_QUESTION: ArenaQuestion = {
-  text: "Five people (A, B, C, D, E) stand in a line. B is not at either end. C is immediately between A and E. D is immediately between B and C. If A is at the first position, what is the order?",
+  text: 'Five people (A, B, C, D, E) stand in a line. B is not at either end. C is immediately between A and E. D is immediately between B and C. If A is at the first position, what is the order?',
   hint: "If A is 1st, then C must be 2nd and E must be 3rd to satisfy 'C is between A and E'. Then D is 4th and B is 5th.",
-  options: ["A, C, E, D, B", "A, E, C, B, D", "A, C, D, B, E", "A, B, C, D, E"],
+  options: ['A, C, E, D, B', 'A, E, C, B, D', 'A, C, D, B, E', 'A, B, C, D, E'],
+  source: 'local',
 };
 
-function buildLocalArenaQueue(count: number = 10): QueuedArenaQuestion[] {
-  const scenarios = [
-    {
-      text: 'Five cars (Red, Blue, Green, Yellow, Black) are parked in a row. Blue is not at either end. Green is immediately between Red and Black. Yellow is immediately between Blue and Green. If Red is parked first, what is the order?',
-      hint: 'Start by placing Red first, then satisfy the fixed adjacency constraints before checking Blue.',
-      options: ['Red, Green, Black, Yellow, Blue', 'Red, Black, Green, Blue, Yellow', 'Red, Green, Yellow, Blue, Black', 'Red, Blue, Green, Yellow, Black'],
-    },
-    {
-      text: 'Six analysts sit around a circular table. Maya sits opposite Kabir. Nia sits immediately to the left of Maya. Rohan is not adjacent to Kabir. Which arrangement is possible?',
-      hint: 'Place Maya first, fix Kabir opposite, then use Nia’s left position before testing Rohan.',
-      options: ['Maya, Nia, Rohan, Kabir, Tara, Om', 'Maya, Tara, Nia, Kabir, Om, Rohan', 'Maya, Nia, Tara, Kabir, Rohan, Om', 'Maya, Om, Nia, Kabir, Tara, Rohan'],
-    },
-    {
-      text: 'A set has three statements, exactly one of which is true. If P says "Q is false", Q says "R is false", and R says "P and Q are both false", who is truthful?',
-      hint: 'Test each speaker as the sole truth-teller and reject contradictions quickly.',
-      options: ['P only', 'Q only', 'R only', 'None of them'],
-    },
-  ];
+const LOCAL_FALLBACK_QUESTIONS: ArenaQuestion[] = [
+  {
+    text: 'Five cars (Red, Blue, Green, Yellow, Black) are parked in a row. Blue is not at either end. Green is immediately between Red and Black. Yellow is immediately between Blue and Green. If Red is parked first, what is the order?',
+    hint: 'Place Red first, satisfy the adjacency constraints, then fit Blue away from both ends.',
+    options: ['Red, Green, Black, Yellow, Blue', 'Red, Black, Green, Blue, Yellow', 'Red, Green, Yellow, Blue, Black', 'Red, Blue, Green, Yellow, Black'],
+    source: 'local',
+  },
+  {
+    text: 'Six analysts sit around a circular table. Maya sits opposite Kabir. Nia sits immediately to the left of Maya. Rohan is not adjacent to Kabir. Which arrangement is possible?',
+    hint: 'Lock Maya and Kabir first, then place Nia to Maya’s left before checking where Rohan can sit.',
+    options: ['Maya, Nia, Rohan, Kabir, Tara, Om', 'Maya, Tara, Nia, Kabir, Om, Rohan', 'Maya, Nia, Tara, Kabir, Rohan, Om', 'Maya, Om, Nia, Kabir, Tara, Rohan'],
+    source: 'local',
+  },
+  {
+    text: 'A set has three statements, exactly one of which is true. If P says "Q is false", Q says "R is false", and R says "P and Q are both false", who is truthful?',
+    hint: 'Assume each speaker is the only truthful one and discard cases that create contradictions.',
+    options: ['P only', 'Q only', 'R only', 'None of them'],
+    source: 'local',
+  },
+  {
+    text: 'Three pipes fill a tank in 6, 10, and 15 hours. If all three are opened together, how long will the tank take to fill?',
+    hint: 'Add their per-hour work rates, then invert the combined rate.',
+    options: ['3 hours', '4 hours', '5 hours', '6 hours'],
+    source: 'local',
+  },
+  {
+    text: 'A trader marks a product 25% above cost price and gives a 10% discount. What is the profit percentage?',
+    hint: 'Apply the discount on the marked price first, then compare the final selling price to cost price.',
+    options: ['10%', '12.5%', '15%', '20%'],
+    source: 'local',
+  },
+  {
+    text: 'In a class, the ratio of boys to girls is 7:5. If 24 more girls join, the ratio becomes 7:8. How many boys are there initially?',
+    hint: 'Let the common multiplier be x and write both ratio equations before solving.',
+    options: ['35', '42', '49', '56'],
+    source: 'local',
+  },
+];
 
-  return Array.from({ length: count }).map((_, index) => {
-    const scenario = scenarios[index % scenarios.length];
-    return {
-      ...scenario,
-      source: 'local' as const,
-    };
-  });
+function normalizeBackendClone(clone: {
+  question_text: string;
+  options: string[];
+  concept_hint: string;
+  answer?: string;
+}): ArenaQuestion {
+  return {
+    text: clone.question_text,
+    hint: clone.concept_hint,
+    options: clone.options,
+    source: 'gemini',
+  };
+}
+
+async function readNextQuestion(): Promise<ArenaQuestion | null> {
+  try {
+    const raw = await AsyncStorage.getItem(NEXT_QUESTION_KEY);
+    if (!raw) {
+      return null;
+    }
+    return JSON.parse(raw) as ArenaQuestion;
+  } catch {
+    return null;
+  }
+}
+
+async function saveNextQuestion(question: ArenaQuestion | null): Promise<void> {
+  if (!question) {
+    await AsyncStorage.removeItem(NEXT_QUESTION_KEY);
+    return;
+  }
+  await AsyncStorage.setItem(NEXT_QUESTION_KEY, JSON.stringify(question));
+}
+
+async function getNextLocalFallback(): Promise<ArenaQuestion> {
+  let index = 0;
+  try {
+    const raw = await AsyncStorage.getItem(FALLBACK_INDEX_KEY);
+    index = raw ? Number(raw) || 0 : 0;
+  } catch {
+    index = 0;
+  }
+  const question = LOCAL_FALLBACK_QUESTIONS[index % LOCAL_FALLBACK_QUESTIONS.length];
+  await AsyncStorage.setItem(FALLBACK_INDEX_KEY, String((index + 1) % LOCAL_FALLBACK_QUESTIONS.length));
+  return question;
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => reject(new Error(`Timed out after ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
+
+async function fetchArenaQuestion(): Promise<ArenaQuestion> {
+  try {
+    const clone = await withTimeout(aiService.generateClone('Algebra', 'Medium'), 6000);
+    if (clone?.question_text && Array.isArray(clone.options) && clone.options.length === 4 && clone.concept_hint) {
+      return normalizeBackendClone(clone);
+    }
+  } catch (error) {
+    console.warn('Arena clone request failed, using local fallback...', error);
+  }
+  return getNextLocalFallback();
 }
 
 export default function QuickSolve() {
@@ -56,120 +143,86 @@ export default function QuickSolve() {
   const [loadingClone, setLoadingClone] = useState(false);
   const [aiSource, setAiSource] = useState<'gemini' | 'puter' | null>(null);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
-  const [queuedQuestions, setQueuedQuestions] = useState<QueuedArenaQuestion[]>([]);
+  const [currentQuestion, setCurrentQuestion] = useState<ArenaQuestion>(INITIAL_QUESTION);
+  const [nextQuestion, setNextQuestion] = useState<ArenaQuestion | null>(null);
+  const isMountedRef = useRef(true);
+  const isPrefetchingRef = useRef(false);
 
-  const [question, setQuestion] = useState<ArenaQuestion>(INITIAL_QUESTION);
-
-  const applyQueuedQuestion = (nextQuestion: QueuedArenaQuestion) => {
-    setQuestion({
-      text: nextQuestion.text,
-      hint: nextQuestion.hint,
-      options: nextQuestion.options,
-    });
-    setAiSource(nextQuestion.source === 'local' ? null : nextQuestion.source);
+  const applyQuestion = (question: ArenaQuestion) => {
+    setCurrentQuestion(question);
+    setAiSource(question.source === 'local' ? null : question.source);
     setSelectedOption(null);
     setShowHint(false);
   };
 
-  const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
-    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-    try {
-      return await Promise.race([
-        promise,
-        new Promise<T>((_, reject) => {
-          timeoutHandle = setTimeout(() => reject(new Error(`Timed out after ${timeoutMs}ms`)), timeoutMs);
-        }),
-      ]);
-    } finally {
-      if (timeoutHandle) {
-        clearTimeout(timeoutHandle);
-      }
+  const prefetchNextQuestion = async () => {
+    if (isPrefetchingRef.current) {
+      return;
     }
-  };
-
-  const loadCloneBatch = async (count: number = 10): Promise<QueuedArenaQuestion[]> => {
-    const seenQuestions = await loadSeenArenaQuestions();
+    isPrefetchingRef.current = true;
     try {
-      const result = await withTimeout(
-        aiService.generateClones('Algebra', 'Medium', count, seenQuestions),
-        6000,
-      );
-      if (result.clones?.length > 0) {
-        return result.clones.map((clone) => ({
-          text: clone.question_text,
-          hint: clone.concept_hint,
-          options: clone.options,
-          source: result.source === 'local' ? 'local' : result.source,
-        }));
-      }
-    } catch (error) {
-      console.warn('Backend clone batch failed, using local arena fallback...', error);
-    }
-
-    return buildLocalArenaQueue(count);
-  };
-
-  const topUpQueue = async (count: number = 1) => {
-    const clones = await loadCloneBatch(count);
-    const merged = await mergeArenaQueue(clones, 1);
-    setQueuedQuestions(merged);
-  };
-
-  React.useEffect(() => {
-    let active = true;
-    const initializeQueue = async () => {
-      const cached = await loadArenaQueue();
-      if (!active) {
+      const fetched = await fetchArenaQuestion();
+      if (!isMountedRef.current) {
         return;
       }
-      const trimmed = cached.slice(0, 1);
-      if (trimmed.length !== cached.length) {
-        await saveArenaQueue(trimmed);
+      setNextQuestion(fetched);
+      await saveNextQuestion(fetched);
+    } finally {
+      isPrefetchingRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    isMountedRef.current = true;
+    const initialize = async () => {
+      const cached = await readNextQuestion();
+      if (!isMountedRef.current) {
+        return;
       }
-      if (trimmed.length > 0) {
-        setQueuedQuestions(trimmed);
-      }
-      if (trimmed.length < 1) {
-        await topUpQueue(1);
+      if (cached) {
+        setNextQuestion(cached);
+      } else {
+        void prefetchNextQuestion();
       }
     };
 
-    void initializeQueue();
+    void initialize();
     return () => {
-      active = false;
+      isMountedRef.current = false;
     };
   }, []);
 
   const handleGenerateClone = async () => {
-    if (queuedQuestions.length > 0) {
-      const { next: nextQuestion, remaining } = await shiftArenaQueue();
-      if (!nextQuestion) {
-        return;
-      }
-      applyQueuedQuestion(nextQuestion);
-      setQueuedQuestions(remaining as QueuedArenaQuestion[]);
-      void topUpQueue(1);
+    if (loadingClone) {
+      return;
+    }
+
+    if (nextQuestion) {
+      const immediate = nextQuestion;
+      setNextQuestion(null);
+      await saveNextQuestion(null);
+      applyQuestion(immediate);
+      void prefetchNextQuestion();
       return;
     }
 
     setLoadingClone(true);
     try {
-      const clones = await loadCloneBatch(1);
-      const [firstQuestion, ...remaining] = clones;
-      if (firstQuestion) {
-        applyQueuedQuestion(firstQuestion);
-        await saveArenaQueue(remaining);
-        setQueuedQuestions(remaining);
+      const fetched = await fetchArenaQuestion();
+      if (!isMountedRef.current) {
+        return;
       }
+      applyQuestion(fetched);
+      void prefetchNextQuestion();
     } finally {
-      setLoadingClone(false);
-      void topUpQueue(1);
+      if (isMountedRef.current) {
+        setLoadingClone(false);
+      }
     }
   };
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
-      {/* Top App Bar */}
       <View className="w-full bg-surface/80 border-b border-outline-variant/30 flex-row items-center justify-between px-4 h-16 z-50">
         <Link href="/" asChild>
           <Pressable className="p-2 rounded-full active:bg-primary/10">
@@ -179,7 +232,7 @@ export default function QuickSolve() {
         <Text className="font-bold text-xl text-primary tracking-tighter">CAT MASTER AI</Text>
         <Link href="/analytics" asChild>
           <Pressable className="p-1 rounded-full border border-outline-variant/50 overflow-hidden">
-            <Image 
+            <Image
               source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDKDfmwxGiQe-rvkkgQXfNlLAxOztmBApsXJs1KgtVInI5RodSP4bpYR-wIwbM21dDCzg-qUyH-Mooh27lbnSRBr-aQqtWtTepE9ZgmKwGr7ubeQstnFX1MA_grzU638PsOvAeVUAApfKmtW5Y45AzO2_MzEfin5cYj_ilXMBolWlEqYz9kkQE5VBLMVv8zjEwxEZyoLo7HpKhy6wNDeb6adzFPsQwz2odPZ7BgB7wbQ7EjwNSbSGfPFNZ0R0z2EgPjCGwKq1zJFDQ' }}
               className="w-8 h-8 rounded-full"
             />
@@ -188,7 +241,6 @@ export default function QuickSolve() {
       </View>
 
       <View className="flex-1 px-4 pt-6 justify-center items-center">
-        {/* Main Card */}
         <View className="w-full max-w-md glass-card rounded-3xl p-6 border border-outline-variant/50 mb-8 relative overflow-hidden">
           {loadingClone && (
             <View className="absolute inset-0 bg-surface/80 items-center justify-center z-10 rounded-3xl">
@@ -201,26 +253,26 @@ export default function QuickSolve() {
             <Text className="text-sm font-semibold tracking-widest text-primary">PUZZLE ARENA</Text>
             <View className="flex-row items-center gap-2">
               {aiSource && (
-                <View className={`flex-row items-center gap-1 px-2 py-1 rounded-full ${aiSource === 'gemini' ? 'bg-primary/10' : 'bg-tertiary-container/10'}`}>
-                  {aiSource === 'puter' ? <Zap color="#ff7e2d" size={10} /> : <Bot color="#a4c9ff" size={10} />}
-                  <Text className={`text-[9px] font-bold tracking-wider ${aiSource === 'gemini' ? 'text-primary' : 'text-tertiary'}`}>
-                    {aiSource === 'gemini' ? 'GEMINI' : 'PUTER'}
-                  </Text>
+                <View className="flex-row items-center gap-1 px-2 py-1 rounded-full bg-primary/10">
+                  <Bot color="#a4c9ff" size={10} />
+                  <Text className="text-[9px] font-bold tracking-wider text-primary">{aiSource === 'puter' ? 'PUTER' : 'GEMINI'}</Text>
                 </View>
               )}
               <View className="px-2 py-1 rounded-full bg-surface-container border border-outline-variant/40">
-                <Text className="text-[9px] font-bold tracking-wider text-on-surface-variant">{queuedQuestions.length > 0 ? 'NEXT READY' : 'PREFETCHING'}</Text>
+                <Text className="text-[9px] font-bold tracking-wider text-on-surface-variant">
+                  {nextQuestion ? 'NEXT READY' : 'PREFETCHING'}
+                </Text>
               </View>
               <Text className="text-sm font-semibold text-secondary">02:18</Text>
             </View>
           </View>
 
           <Text className="text-xl font-bold text-on-surface mb-6 leading-relaxed">
-            {question.text}
+            {currentQuestion.text}
           </Text>
 
           <View className="gap-3 mb-6">
-            {question.options.map((opt, i) => (
+            {currentQuestion.options.map((opt, i) => (
               <Pressable
                 key={i}
                 onPress={() => setSelectedOption(i)}
@@ -237,21 +289,20 @@ export default function QuickSolve() {
           {showHint && (
             <View className="bg-tertiary-container/10 p-4 rounded-xl border border-tertiary/20 mb-4">
               <Text className="text-sm font-semibold text-tertiary mb-1">Concept Hint:</Text>
-              <Text className="text-sm text-on-surface-variant">{question.hint}</Text>
+              <Text className="text-sm text-on-surface-variant">{currentQuestion.hint}</Text>
             </View>
           )}
         </View>
 
-        {/* Action Buttons */}
         <View className="w-full max-w-md flex-row gap-4">
-          <Pressable 
+          <Pressable
             onPress={() => setShowHint(!showHint)}
             className="flex-1 py-4 rounded-xl border border-tertiary/50 bg-tertiary-container/10 active:bg-tertiary-container/20 items-center justify-center flex-row gap-2"
           >
             <Lightbulb color="#ffb690" size={20} />
             <Text className="text-base font-semibold text-tertiary">Concept Hint</Text>
           </Pressable>
-          <Pressable 
+          <Pressable
             onPress={handleGenerateClone}
             className="flex-1 py-4 rounded-xl bg-gradient-to-r from-secondary-container to-primary items-center justify-center flex-row gap-2 active:opacity-80"
           >
