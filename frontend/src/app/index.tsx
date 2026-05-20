@@ -77,7 +77,7 @@ export default function Home() {
             <View className="flex-1">
               <Text className="text-lg font-semibold text-on-surface mb-1">{dashboard?.currentFocus || 'Live recommendations will appear here'}</Text>
               <Text className="text-sm text-on-surface-variant mb-3">{dashboard?.recommendedPath || 'Complete real activities in the app to generate recommendations.'}</Text>
-              <Link href={{ pathname: '/flashcards', params: { topic: 'Algebra' } }} asChild>
+              <Link href={{ pathname: './flashcards', params: { topic: 'Algebra' } }} asChild>
                 <Pressable className="flex-row items-center gap-1">
                   <Text className="text-primary text-sm font-semibold">Start Module</Text>
                   <ArrowRight color="#a4c9ff" size={16} />
@@ -152,7 +152,7 @@ export default function Home() {
             </Pressable>
           </Link>
 
-          <Link href="/flashcards" asChild>
+          <Link href="./flashcards" asChild>
             <Pressable className="w-[48%] glass-card rounded-xl p-4 items-center active:opacity-80">
               <View className="w-12 h-12 bg-secondary/10 rounded-full items-center justify-center mb-3">
                 <Library color="#ddb7ff" size={24} />
@@ -224,7 +224,7 @@ export default function Home() {
             <Text className="text-[10px] font-medium tracking-widest text-on-surface-variant mt-1">Mocks</Text>
           </Pressable>
         </Link>
-        <Link href="/flashcards" asChild>
+        <Link href="./flashcards" asChild>
           <Pressable className="items-center opacity-70">
             <Library color="#c1c7d3" size={24} />
             <Text className="text-[10px] font-medium tracking-widest text-on-surface-variant mt-1">Library</Text>

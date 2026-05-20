@@ -1,17 +1,10 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, Pressable, Image, ScrollView, Animated, ActivityIndicator } from 'react-native';
-import { Menu, RefreshCcw, Volume2, Hand, Sparkles } from 'lucide-react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { View, Text, Pressable, Image, ScrollView, ActivityIndicator } from 'react-native';
+import { Menu, RefreshCcw, Hand, Sparkles } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { flashcardService } from '../../api/client';
-import {
-  flushFlashcardReviews,
-  loadFlashcardQueue,
-  mergeFlashcardQueue,
-  queueFlashcardReview,
-  saveFlashcardQueue,
-} from '../../lib/studyQueue';
-import { usePuter } from '../../providers/PuterProvider';
 import { recordFlashcardReview } from '../../lib/appStats';
 
 type Flashcard = {
@@ -23,243 +16,275 @@ type Flashcard = {
 };
 
 const TOPICS = ['Algebra', 'Probability', 'Geometry', 'Number Systems', 'Permutations', 'Time & Work', 'Profit & Loss', 'Averages'];
-const READY_FLASHCARD_COUNT = 10;
+const DECK_SIZE = 10;
 
-function buildLocalFlashcards(topic: string, count: number = READY_FLASHCARD_COUNT) {
+function deckStorageKey(topic: string) {
+  return `flashcards:deck:v2:${topic.toLowerCase()}`;
+}
+
+function buildLocalFlashcards(topic: string, count: number = DECK_SIZE): Flashcard[] {
   const safeTopic = topic || 'CAT Concepts';
   return [
     {
       id: `local-${safeTopic}-1`,
       topic: safeTopic,
       front: `${safeTopic}: Core Formula`,
-      back: 'Recall the main relationship or formula before solving.',
-      explanation: `Use this as the first-pass memory trigger for ${safeTopic}.`,
+      back: 'Recall the primary formula, definition, or governing rule before solving.',
+      explanation: `This is the fastest first-pass memory anchor for ${safeTopic}.`,
     },
     {
       id: `local-${safeTopic}-2`,
       topic: safeTopic,
       front: `${safeTopic}: Typical Trap`,
-      back: 'Check constraints before committing to the first visible method.',
+      back: 'Check constraints and assumptions before applying the first visible method.',
       explanation: `Many CAT ${safeTopic} questions are designed to punish rushed assumptions.`,
     },
     {
       id: `local-${safeTopic}-3`,
       topic: safeTopic,
       front: `${safeTopic}: Fast Strategy`,
-      back: 'Eliminate options structurally before doing full computation.',
-      explanation: 'This usually improves both accuracy and speed under timed conditions.',
+      back: 'Use structural elimination before full computation whenever answer choices are spread apart.',
+      explanation: 'This usually improves speed and reduces calculation errors.',
     },
     {
       id: `local-${safeTopic}-4`,
       topic: safeTopic,
       front: `${safeTopic}: Accuracy Check`,
-      back: 'Confirm the exact quantity asked in the final line.',
-      explanation: 'Correct working still loses marks if you answer the wrong target.',
+      back: 'Confirm the exact quantity asked in the final line before locking the answer.',
+      explanation: 'Correct solving still loses marks if you answer the wrong target.',
     },
     {
       id: `local-${safeTopic}-5`,
       topic: safeTopic,
       front: `${safeTopic}: Revision Prompt`,
-      back: 'Explain the concept in one line, then solve one representative question.',
-      explanation: 'Active recall plus immediate application is the most reliable revision loop.',
+      back: 'Explain the concept in one line and solve one representative question immediately after.',
+      explanation: 'Active recall plus immediate use is the most reliable revision loop.',
     },
     {
       id: `local-${safeTopic}-6`,
       topic: safeTopic,
-      front: `${safeTopic}: Data Check`,
-      back: 'List the values given, the variable asked, and the hidden constraint before solving.',
-      explanation: 'This reduces avoidable setup errors on CAT questions.',
+      front: `${safeTopic}: Pattern Trigger`,
+      back: 'Look for symmetry, ratio, parity, sequencing, or hidden simplification before brute force.',
+      explanation: 'Recurring structures often create the shortest path in CAT problems.',
     },
     {
       id: `local-${safeTopic}-7`,
       topic: safeTopic,
       front: `${safeTopic}: Estimation Move`,
       back: 'Estimate the scale of the answer before exact calculation.',
-      explanation: 'Estimation helps reject impossible options early.',
+      explanation: 'This helps reject impossible options quickly.',
     },
     {
       id: `local-${safeTopic}-8`,
       topic: safeTopic,
-      front: `${safeTopic}: Reverse Solve`,
-      back: 'When options are far apart, plug answer choices back into the condition.',
-      explanation: 'Option-driven solving is often faster than direct derivation.',
+      front: `${safeTopic}: Data Check`,
+      back: 'List the values given, the variable required, and the hidden condition before solving.',
+      explanation: 'This reduces avoidable setup errors.',
     },
     {
       id: `local-${safeTopic}-9`,
       topic: safeTopic,
-      front: `${safeTopic}: Pattern Trigger`,
-      back: 'Check whether symmetry, parity, ratio, or sequencing simplifies the problem.',
-      explanation: 'Many CAT shortcuts come from spotting recurring structures.',
+      front: `${safeTopic}: Reverse Solve`,
+      back: 'When options are far apart, test answer choices instead of deriving from scratch.',
+      explanation: 'Option-driven solving is often the faster exam move.',
     },
     {
       id: `local-${safeTopic}-10`,
       topic: safeTopic,
       front: `${safeTopic}: Final Review`,
-      back: 'Summarize the one mistake you are most likely to make on this topic.',
+      back: 'Name the single mistake you are most likely to make on this topic.',
       explanation: 'Personal error awareness improves retention and exam accuracy.',
     },
   ].slice(0, Math.max(1, count));
 }
 
+async function readDeck(topic: string): Promise<Flashcard[]> {
+  try {
+    const raw = await AsyncStorage.getItem(deckStorageKey(topic));
+    if (!raw) {
+      return [];
+    }
+    return JSON.parse(raw) as Flashcard[];
+  } catch {
+    return [];
+  }
+}
+
+async function saveDeck(topic: string, deck: Flashcard[]): Promise<void> {
+  await AsyncStorage.setItem(deckStorageKey(topic), JSON.stringify(deck));
+}
+
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<T>((_, reject) => {
+        timeoutHandle = setTimeout(() => reject(new Error(`Timed out after ${timeoutMs}ms`)), timeoutMs);
+      }),
+    ]);
+  } finally {
+    if (timeoutHandle) {
+      clearTimeout(timeoutHandle);
+    }
+  }
+}
+
+async function fetchFreshDeck(topic: string): Promise<Flashcard[]> {
+  try {
+    const data = await withTimeout(flashcardService.generateFlashcards(topic, DECK_SIZE), 6000);
+    if (data?.flashcards?.length) {
+      const normalized = data.flashcards
+        .filter((card: Partial<Flashcard>) => typeof card.front === 'string' && typeof card.back === 'string' && typeof card.explanation === 'string')
+        .map((card: Partial<Flashcard>, index: number) => ({
+          id: card.id || `generated-${topic}-${Date.now()}-${index}`,
+          topic: card.topic || topic,
+          front: card.front as string,
+          back: card.back as string,
+          explanation: card.explanation as string,
+        }));
+      if (normalized.length > 0) {
+        return normalized.slice(0, DECK_SIZE);
+      }
+    }
+  } catch (error) {
+    console.warn('Flashcard generation failed, using local fallback...', error);
+  }
+  return buildLocalFlashcards(topic, DECK_SIZE);
+}
+
 export default function Flashcards() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ topic?: string }>();
-  const [flipped, setFlipped] = useState(false);
-  const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const [generating, setGenerating] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState('Algebra');
-  const flipAnim = useRef(new Animated.Value(0)).current;
-  const { isConnected, chat: puterChat } = usePuter();
+  const [deck, setDeck] = useState<Flashcard[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [showBack, setShowBack] = useState(false);
+  const [loadingDeck, setLoadingDeck] = useState(false);
+  const isMountedRef = useRef(true);
+  const isRefreshingRef = useRef(false);
 
-  const ensureReadyFlashcards = (cards: Flashcard[], topic: string) => {
-    if (cards.length >= READY_FLASHCARD_COUNT) {
-      return cards.slice(0, READY_FLASHCARD_COUNT);
+  const currentCard = deck[currentIndex] ?? null;
+  const progressPercent = deck.length ? Math.min(100, ((currentIndex + 1) / deck.length) * 100) : 0;
+
+  const hydrateDeck = React.useCallback(async (topic: string) => {
+    const cached = await readDeck(topic);
+    if (cached.length > 0 && isMountedRef.current) {
+      setDeck(cached);
+      setCurrentIndex(0);
+      setShowBack(false);
     }
-    const usedIds = new Set(cards.map((card) => card.id));
-    const extras = buildLocalFlashcards(topic, READY_FLASHCARD_COUNT)
-      .filter((card) => !usedIds.has(card.id))
-      .slice(0, READY_FLASHCARD_COUNT - cards.length);
-    return [...cards, ...extras];
-  };
 
-  const syncQueuedReviews = React.useCallback(async () => {
-    await flushFlashcardReviews((review) =>
-      flashcardService.reviewFlashcard(review.flashcardId, review.difficulty),
-    );
+    if (cached.length === 0) {
+      setLoadingDeck(true);
+    }
+
+    try {
+      const fresh = await fetchFreshDeck(topic);
+      await saveDeck(topic, fresh);
+      if (isMountedRef.current) {
+        setDeck(fresh);
+        setCurrentIndex(0);
+        setShowBack(false);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setLoadingDeck(false);
+      }
+    }
   }, []);
 
-  const fetchFreshFlashcards = React.useCallback(async (topic: string): Promise<Flashcard[]> => {
+  const topUpDeck = React.useCallback(async (topic: string) => {
+    if (isRefreshingRef.current) {
+      return;
+    }
+    isRefreshingRef.current = true;
     try {
-      const data = await flashcardService.generateFlashcards(topic, READY_FLASHCARD_COUNT);
-      if (data?.flashcards?.length > 0) {
-        return ensureReadyFlashcards(data.flashcards, topic);
+      const fresh = await fetchFreshDeck(topic);
+      const existing = await readDeck(topic);
+      const seen = new Set(existing.map((card) => `${card.front}::${card.back}`));
+      const merged = [...existing];
+      for (const card of fresh) {
+        const key = `${card.front}::${card.back}`;
+        if (seen.has(key)) {
+          continue;
+        }
+        seen.add(key);
+        merged.push(card);
+        if (merged.length >= DECK_SIZE) {
+          break;
+        }
       }
-    } catch (error) {
-      console.warn('Backend flashcard gen failed, trying Puter...', error);
-    }
-
-    if (isConnected) {
-      try {
-        const prompt = `Generate ${READY_FLASHCARD_COUNT} CAT exam flashcards for "${topic}". Return ONLY JSON array: [{"front":"...","back":"...","explanation":"...","topic":"${topic}"}]`;
-        const text = await puterChat(prompt, 'claude-sonnet-4-20250514');
-        let cleaned = text.trim();
-        if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
-        if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
-        if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
-        const parsedCards = JSON.parse(cleaned.trim()) as Array<Partial<Flashcard>>;
-        const cards: Flashcard[] = parsedCards
-          .filter((card) => typeof card.front === 'string' && typeof card.back === 'string' && typeof card.explanation === 'string')
-          .map((card, i) => ({
-            id: `puter-${Date.now()}-${i}`,
-            topic: card.topic || topic,
-            front: card.front as string,
-            back: card.back as string,
-            explanation: card.explanation as string,
-          }));
-        return ensureReadyFlashcards(cards, topic);
-      } catch (puterError) {
-        console.error('Puter flashcard gen failed:', puterError);
+      const nextDeck = merged.slice(0, DECK_SIZE);
+      await saveDeck(topic, nextDeck);
+      if (isMountedRef.current) {
+        setDeck(nextDeck);
       }
+    } finally {
+      isRefreshingRef.current = false;
     }
+  }, []);
 
-    return buildLocalFlashcards(topic, READY_FLASHCARD_COUNT);
-  }, [isConnected, puterChat]);
-
-  const topUpFlashcards = React.useCallback(async (topic: string) => {
-    const fresh = await fetchFreshFlashcards(topic);
-    const merged = await mergeFlashcardQueue(topic, fresh, READY_FLASHCARD_COUNT);
-    setFlashcards(merged);
-  }, [fetchFreshFlashcards]);
-
-  React.useEffect(() => {
+  useEffect(() => {
     if (typeof params.topic === 'string' && TOPICS.includes(params.topic)) {
       setSelectedTopic(params.topic);
     }
   }, [params.topic]);
 
-  const handleGenerateFlashcards = async () => {
-    setGenerating(true);
-    try {
-      const cards = await fetchFreshFlashcards(selectedTopic);
-      await saveFlashcardQueue(selectedTopic, cards);
-      setFlashcards(cards);
-      setCurrentIndex(0);
-      if (flipped) flipCard();
-    } finally {
-      setGenerating(false);
-    }
-  };
-
-  React.useEffect(() => {
-    let active = true;
-
-    const hydrateFlashcards = async () => {
-      const cached = await loadFlashcardQueue(selectedTopic);
-      if (active && cached.length > 0) {
-        setFlashcards(cached);
-      }
-
-      const fresh = await fetchFreshFlashcards(selectedTopic);
-      await saveFlashcardQueue(selectedTopic, fresh);
-      if (active) {
-        setFlashcards(fresh);
-        setCurrentIndex(0);
-      }
-    };
-
-    void hydrateFlashcards();
+  useEffect(() => {
+    isMountedRef.current = true;
+    void hydrateDeck(selectedTopic);
     return () => {
-      active = false;
+      isMountedRef.current = false;
     };
-  }, [fetchFreshFlashcards, selectedTopic]);
+  }, [hydrateDeck, selectedTopic]);
 
-  React.useEffect(() => {
-    void syncQueuedReviews();
-  }, [syncQueuedReviews]);
-
-  const flipCard = () => {
-    Animated.spring(flipAnim, {
-      toValue: flipped ? 0 : 180,
-      friction: 8,
-      tension: 10,
-      useNativeDriver: true,
-    }).start();
-    setFlipped(!flipped);
-  };
-
-  const frontInterpolate = flipAnim.interpolate({
-    inputRange: [0, 180],
-    outputRange: ['0deg', '180deg'],
-  });
-  const backInterpolate = flipAnim.interpolate({
-    inputRange: [0, 180],
-    outputRange: ['180deg', '360deg'],
-  });
-
-  const handleReview = async (difficulty: "Hard" | "Good" | "Easy") => {
-    if (flashcards.length === 0) return;
-    const reviewedCard = flashcards[currentIndex];
-    const remainingCards = flashcards.filter((_, index) => index !== currentIndex);
-
-    if (flipped) flipCard();
-    setFlashcards(remainingCards);
-    setCurrentIndex(0);
-    await saveFlashcardQueue(selectedTopic, remainingCards);
-    await queueFlashcardReview({ flashcardId: reviewedCard.id, difficulty });
-    await recordFlashcardReview({ topic: reviewedCard.topic || selectedTopic, difficulty });
-    void syncQueuedReviews();
-
-    if (remainingCards.length < 4) {
-      void topUpFlashcards(selectedTopic);
+  const handleGenerateDeck = async () => {
+    setLoadingDeck(true);
+    try {
+      const fresh = await fetchFreshDeck(selectedTopic);
+      await saveDeck(selectedTopic, fresh);
+      if (isMountedRef.current) {
+        setDeck(fresh);
+        setCurrentIndex(0);
+        setShowBack(false);
+      }
+    } finally {
+      if (isMountedRef.current) {
+        setLoadingDeck(false);
+      }
     }
   };
 
-  const currentCard = flashcards[currentIndex];
+  const handleReview = async (difficulty: 'Hard' | 'Good' | 'Easy') => {
+    if (!currentCard) {
+      return;
+    }
+
+    const nextDeck = deck.filter((_, index) => index !== currentIndex);
+    setDeck(nextDeck);
+    setCurrentIndex(0);
+    setShowBack(false);
+    await saveDeck(selectedTopic, nextDeck);
+    await recordFlashcardReview({ topic: currentCard.topic || selectedTopic, difficulty });
+
+    if (nextDeck.length < 3) {
+      void topUpDeck(selectedTopic);
+    }
+  };
+
+  const statusLabel = useMemo(() => {
+    if (loadingDeck && deck.length === 0) {
+      return 'LOADING';
+    }
+    if (deck.length === 0) {
+      return 'EMPTY';
+    }
+    return `${deck.length} READY`;
+  }, [deck.length, loadingDeck]);
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
-      {/* Top App Bar */}
       <View className="w-full bg-surface/80 border-b border-outline-variant/30 flex-row items-center justify-between px-4 h-16 z-50">
         <Link href="/" asChild>
           <Pressable className="p-2 rounded-full active:bg-primary/10">
@@ -269,7 +294,7 @@ export default function Flashcards() {
         <Text className="font-bold text-xl text-primary tracking-tighter">CAT MASTER AI</Text>
         <Link href="/analytics" asChild>
           <Pressable className="p-1 rounded-full border border-outline-variant/50 overflow-hidden">
-            <Image 
+            <Image
               source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBWIf5Ro8Y0lxBXiXaj8mw0LsB6oHUa4GJkFzP6szk2u_jnNTNnKNAThPxMyPg2c0ty1cx_Z-20M8W3K_1RkBPVlXGCAMTf4Fo2R3fK8vRNGQv31OUVtJchRE4J250oZTB70d9qoi8HJjYz72EfpdC_0IGFVMoFT5GJmER4EAbpeS8VRKvzOVCuloWjKnJUFPPGXcJ3-V4o6s-0WiMQq3lCX0PgCoUHafVCrixTN45kjIM595WSzxBpdwaWlT8KJxocgM6qEzSJUY8' }}
               className="w-8 h-8 rounded-full"
             />
@@ -277,124 +302,146 @@ export default function Flashcards() {
         </Link>
       </View>
 
-      <View className="flex-1 items-center px-4 pt-8">
-        {/* Progress Indicator */}
-        <View className="w-full max-w-md flex-row items-center justify-between mb-8">
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 24, paddingBottom: 24, alignItems: 'center' }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View className="w-full max-w-md flex-row items-center justify-between mb-6">
           <View className="flex-row items-center gap-2">
             <View className="w-8 h-8 rounded-full bg-primary/20 border border-primary/30 items-center justify-center">
-            <Text className="text-primary font-semibold">{flashcards.length > 0 ? currentIndex + 1 : 0}</Text>
+              <Text className="text-primary font-semibold">{currentCard ? currentIndex + 1 : 0}</Text>
+            </View>
+            <Text className="text-on-surface-variant text-sm">/ {deck.length}</Text>
           </View>
-          <Text className="text-on-surface-variant text-sm">/ {flashcards.length}</Text>
-        </View>
-        <View className="flex-1 mx-4 h-2 bg-surface-container rounded-full overflow-hidden">
-          <View className="h-full bg-primary" style={{ width: `${flashcards.length ? ((currentIndex + 1) / flashcards.length) * 100 : 0}%` }} />
-        </View>
-        <View className="flex-row gap-1">
+          <View className="flex-1 mx-4 h-2 bg-surface-container rounded-full overflow-hidden">
+            <View className="h-full bg-primary" style={{ width: `${progressPercent}%` }} />
+          </View>
           <View className="px-2 py-1 rounded-full bg-surface-container-high border border-outline-variant">
-            <Text className="text-[10px] text-on-surface-variant tracking-widest font-medium">CONCEPT</Text>
+            <Text className="text-[10px] text-on-surface-variant tracking-widest font-medium">{statusLabel}</Text>
           </View>
-          <View className="px-2 py-1 rounded-full bg-secondary-container/30 border border-secondary/30">
-            <Text className="text-[10px] text-secondary tracking-widest font-medium">{currentCard?.topic?.toUpperCase() || "UNKNOWN"}</Text>
-          </View>
-        </View>
         </View>
 
-        {/* Topic Selector & Generate */}
         <View className="w-full max-w-md mb-4">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-            {TOPICS.map((t) => (
+            {TOPICS.map((topic) => (
               <Pressable
-                key={t}
-                onPress={() => setSelectedTopic(t)}
-                className={`px-3 py-2 rounded-full border ${selectedTopic === t ? 'bg-primary/20 border-primary/50' : 'border-outline-variant/50 bg-surface-container-high'}`}
+                key={topic}
+                onPress={() => setSelectedTopic(topic)}
+                className={`px-3 py-2 rounded-full border ${selectedTopic === topic ? 'bg-primary/20 border-primary/50' : 'border-outline-variant/50 bg-surface-container-high'}`}
               >
-                <Text className={`text-xs font-medium ${selectedTopic === t ? 'text-primary' : 'text-on-surface-variant'}`}>{t}</Text>
+                <Text className={`text-xs font-medium ${selectedTopic === topic ? 'text-primary' : 'text-on-surface-variant'}`}>{topic}</Text>
               </Pressable>
             ))}
           </ScrollView>
+
           <Pressable
-            onPress={handleGenerateFlashcards}
-            disabled={generating}
+            onPress={handleGenerateDeck}
+            disabled={loadingDeck}
             className="mt-3 py-3 rounded-xl bg-secondary-container/30 border border-secondary/30 items-center flex-row justify-center gap-2 active:opacity-80"
           >
-            {generating ? (
-              <ActivityIndicator size="small" color="#ddb7ff" />
-            ) : (
-              <Sparkles color="#ddb7ff" size={18} />
-            )}
+            {loadingDeck ? <ActivityIndicator size="small" color="#ddb7ff" /> : <Sparkles color="#ddb7ff" size={18} />}
             <Text className="text-sm font-semibold text-secondary">
-              {generating ? 'Generating...' : `Generate ${selectedTopic} Flashcards`}
+              {loadingDeck ? 'Generating...' : `Generate ${selectedTopic} Flashcards`}
             </Text>
           </Pressable>
         </View>
 
-      {/* Flashcard Container */}
-      {currentCard ? (
-        <Pressable onPress={flipCard} className="w-full max-w-md aspect-[3/4] relative perspective-1000">
-          {/* Front */}
-          <Animated.View 
-            className="absolute w-full h-full glass-card rounded-3xl border border-outline-variant/50 items-center justify-center p-6 bg-surface-container-low/80"
-            style={{ transform: [{ rotateY: frontInterpolate }], backfaceVisibility: 'hidden' }}
-          >
-            <View className="absolute top-4 right-4 flex-row items-center gap-1 opacity-50">
+        <View className="w-full max-w-md glass-card rounded-3xl border border-outline-variant/50 bg-surface-container-low/80 overflow-hidden mb-6">
+          <View className="px-6 pt-6 pb-4 flex-row items-center justify-between">
+            <View className="flex-row gap-2">
+              <View className="px-2 py-1 rounded-full bg-surface-container-high border border-outline-variant">
+                <Text className="text-[10px] text-on-surface-variant tracking-widest font-medium">FLASHCARD</Text>
+              </View>
+              <View className="px-2 py-1 rounded-full bg-secondary-container/30 border border-secondary/30">
+                <Text className="text-[10px] text-secondary tracking-widest font-medium">{selectedTopic.toUpperCase()}</Text>
+              </View>
+            </View>
+            <View className="flex-row items-center gap-1 opacity-60">
               <Hand color="#c1c7d3" size={14} />
               <Text className="text-[10px] tracking-widest font-medium text-on-surface-variant">TAP TO FLIP</Text>
             </View>
-            <Text className="text-3xl font-bold text-primary text-center leading-tight">
-              {currentCard.front}
-            </Text>
-            <View className="mt-8 w-12 h-12 rounded-full bg-primary/10 border border-primary/20 items-center justify-center">
-              <RefreshCcw color="#a4c9ff" size={24} />
-            </View>
-          </Animated.View>
+          </View>
 
-          {/* Back */}
-          <Animated.View 
-            className="absolute w-full h-full glass-card rounded-3xl border border-outline-variant/50 p-6 bg-surface-container-high/90 border-t-4 border-t-secondary"
-            style={{ transform: [{ rotateY: backInterpolate }], backfaceVisibility: 'hidden' }}
+          <Pressable
+            onPress={() => currentCard && setShowBack((prev) => !prev)}
+            className="px-6 pb-6 min-h-[420px] justify-center"
           >
-            <View className="flex-row items-center justify-between mb-6 pb-4 border-b border-outline-variant/30">
-              <Text className="text-lg font-semibold text-secondary">Formula & Explanation</Text>
-              <Pressable onPress={flipCard}>
-                <Volume2 color="#c1c7d3" size={20} />
-              </Pressable>
-            </View>
-            
-            <View className="flex-1 justify-center space-y-6">
-              <View className="bg-surface-dim/80 p-4 rounded-xl border border-outline-variant/40 items-center mb-6">
-                <Text className="text-lg font-medium text-on-surface font-mono tracking-wider">
-                  {currentCard.back}
-                </Text>
+            {currentCard ? (
+              !showBack ? (
+                <View className="items-center justify-center">
+                  <Text className="text-3xl font-bold text-primary text-center leading-tight">
+                    {currentCard.front}
+                  </Text>
+                  <View className="mt-8 w-12 h-12 rounded-full bg-primary/10 border border-primary/20 items-center justify-center">
+                    <RefreshCcw color="#a4c9ff" size={24} />
+                  </View>
+                </View>
+              ) : (
+                <View>
+                  <Text className="text-lg font-semibold text-secondary mb-4">Answer</Text>
+                  <Text className="text-2xl font-bold text-on-surface mb-6 leading-tight">{currentCard.back}</Text>
+                  <Text className="text-xs font-medium tracking-widest text-primary mb-2">WHY IT MATTERS</Text>
+                  <Text className="text-base text-on-surface-variant leading-relaxed">{currentCard.explanation}</Text>
+                </View>
+              )
+            ) : (
+              <View className="items-center justify-center flex-1">
+                {loadingDeck ? (
+                  <>
+                    <ActivityIndicator size="large" color="#a4c9ff" />
+                    <Text className="text-primary font-semibold mt-4">Loading flashcards...</Text>
+                  </>
+                ) : (
+                  <>
+                    <Text className="text-2xl font-bold text-on-surface mb-3 text-center">No flashcards ready</Text>
+                    <Text className="text-sm text-on-surface-variant text-center max-w-[260px]">
+                      Generate a fresh deck for {selectedTopic} to start reviewing.
+                    </Text>
+                  </>
+                )}
               </View>
-              
-              <Text className="text-base text-on-surface-variant leading-relaxed mb-6">
-                {currentCard.explanation}
-              </Text>
-            </View>
-          </Animated.View>
-        </Pressable>
-      ) : (
-        <View className="w-full max-w-md aspect-[3/4] items-center justify-center">
-           <Text className="text-on-surface-variant">Loading flashcards...</Text>
+            )}
+          </Pressable>
         </View>
-      )}
 
-      {/* SRS Controls */}
-        <View className="w-full max-w-md mt-12 flex-row gap-4">
-          <Pressable onPress={() => handleReview("Hard")} className="flex-1 items-center justify-center py-4 rounded-xl bg-error-container/20 border border-error/30 active:opacity-80">
-            <Text className="text-lg font-semibold text-error mb-1">Hard</Text>
-            <Text className="text-[10px] tracking-widest font-medium text-error/70">{"< 1m"}</Text>
+        <View className="w-full max-w-md gap-4">
+          <Pressable
+            onPress={() => currentCard && setShowBack((prev) => !prev)}
+            disabled={!currentCard}
+            className={`py-4 rounded-xl items-center justify-center flex-row gap-2 ${currentCard ? 'bg-primary' : 'bg-surface-container-high border border-outline-variant/40'}`}
+          >
+            <RefreshCcw color={currentCard ? '#ffffff' : '#8b919d'} size={18} />
+            <Text className={`text-base font-semibold ${currentCard ? 'text-white' : 'text-on-surface-variant'}`}>
+              {showBack ? 'Show Front' : 'Show Back'}
+            </Text>
           </Pressable>
-          <Pressable onPress={() => handleReview("Good")} className="flex-1 items-center justify-center py-4 rounded-xl bg-primary-container/20 border border-primary/30 active:opacity-80">
-            <Text className="text-lg font-semibold text-primary mb-1">Good</Text>
-            <Text className="text-[10px] tracking-widest font-medium text-primary/70">10m</Text>
-          </Pressable>
-          <Pressable onPress={() => handleReview("Easy")} className="flex-1 items-center justify-center py-4 rounded-xl bg-[#004d40]/40 border border-[#4ade80]/30 active:opacity-80">
-            <Text className="text-lg font-semibold text-[#4ade80] mb-1">Easy</Text>
-            <Text className="text-[10px] tracking-widest font-medium text-[#4ade80]/70">4d</Text>
-          </Pressable>
+
+          <View className="flex-row gap-3">
+            <Pressable
+              onPress={() => handleReview('Hard')}
+              disabled={!currentCard}
+              className={`flex-1 py-4 rounded-xl items-center justify-center ${currentCard ? 'bg-error/90' : 'bg-surface-container-high border border-outline-variant/40'}`}
+            >
+              <Text className={`text-base font-semibold ${currentCard ? 'text-white' : 'text-on-surface-variant'}`}>Hard</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => handleReview('Good')}
+              disabled={!currentCard}
+              className={`flex-1 py-4 rounded-xl items-center justify-center ${currentCard ? 'bg-secondary' : 'bg-surface-container-high border border-outline-variant/40'}`}
+            >
+              <Text className={`text-base font-semibold ${currentCard ? 'text-white' : 'text-on-surface-variant'}`}>Good</Text>
+            </Pressable>
+            <Pressable
+              onPress={() => handleReview('Easy')}
+              disabled={!currentCard}
+              className={`flex-1 py-4 rounded-xl items-center justify-center ${currentCard ? 'bg-status-answered' : 'bg-surface-container-high border border-outline-variant/40'}`}
+            >
+              <Text className={`text-base font-semibold ${currentCard ? 'text-white' : 'text-on-surface-variant'}`}>Easy</Text>
+            </Pressable>
+          </View>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
