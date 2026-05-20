@@ -1,7 +1,8 @@
+import json
 import os
 from google import genai
 from pinecone import Pinecone
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 index_name = os.environ.get("PINECONE_INDEX_NAME", "cat-prep-index")
 
@@ -18,16 +19,42 @@ def _get_clients():
     pc = Pinecone(api_key=pinecone_api_key)
     return client, pc
 
-async def generate_question_clone(topic: str, difficulty: str):
+
+def _is_retryable_error(error: Exception) -> bool:
+    message = str(error).lower()
+    retry_markers = (
+        "429",
+        "500",
+        "502",
+        "503",
+        "504",
+        "unavailable",
+        "high demand",
+        "timeout",
+        "timed out",
+        "connection reset",
+        "temporar",
+        "rate limit",
+        "resource exhausted",
+        "deadline exceeded",
+    )
+    return any(marker in message for marker in retry_markers)
+
+
+def generate_question_clone(topic: str, difficulty: str):
     client, pc = _get_clients()
 
     # Step 1: Embed the query to find similar questions in Pinecone
     query_text = f"{topic} CAT question {difficulty} difficulty"
     
-    @retry(wait=wait_exponential(multiplier=2, min=4, max=60), stop=stop_after_attempt(5))
+    @retry(
+        wait=wait_exponential(multiplier=2, min=4, max=60),
+        stop=stop_after_attempt(5),
+        retry=retry_if_exception(_is_retryable_error),
+    )
     def _embed_query():
         return client.models.embed_content(
-            model="text-embedding-004",
+            model="gemini-embedding-001",
             contents=query_text,
             config=genai.types.EmbedContentConfig(output_dimensionality=768)
         )
@@ -60,7 +87,11 @@ async def generate_question_clone(topic: str, difficulty: str):
     Return as JSON: {{"question_text": "...", "options": ["A", "B", "C", "D"], "answer": "...", "concept_hint": "..."}}
     """
     
-    @retry(wait=wait_exponential(multiplier=2, min=4, max=60), stop=stop_after_attempt(5))
+    @retry(
+        wait=wait_exponential(multiplier=2, min=4, max=60),
+        stop=stop_after_attempt(5),
+        retry=retry_if_exception(_is_retryable_error),
+    )
     def _generate_clone():
         return client.models.generate_content(
             model='gemini-2.5-flash',
@@ -72,14 +103,12 @@ async def generate_question_clone(topic: str, difficulty: str):
     
     try:
         response = _generate_clone()
-        import json
         return json.loads(response.text)
     except Exception as e:
         puter_key = os.environ.get("PUTER_API_KEY")
         if puter_key:
             print("Gemini clone failed, falling back to Puter AI...", e)
             import openai
-            import json
             puter_client = openai.OpenAI(api_key=puter_key, base_url="https://api.puter.com/puterai/openai/v1/")
             completion = puter_client.chat.completions.create(
                 model="claude-3-5-sonnet",

@@ -16,7 +16,7 @@ from admin_state import (
 )
 from google import genai
 from pinecone import Pinecone
-from tenacity import retry, stop_after_attempt, wait_exponential
+from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 index_name = os.environ.get("PINECONE_INDEX_NAME", "cat-prep-index")
 
@@ -120,7 +120,11 @@ async def _process_and_ingest_pdf_once(file_content: bytes, filename: str, uploa
     Text:
     """ + chunk
     
-    @retry(wait=wait_exponential(multiplier=2, min=4, max=60), stop=stop_after_attempt(5))
+    @retry(
+        wait=wait_exponential(multiplier=2, min=4, max=60),
+        stop=stop_after_attempt(5),
+        retry=retry_if_exception(_is_retryable_error),
+    )
     def _generate_questions():
         return client.models.generate_content(
             model='gemini-2.5-flash',
@@ -176,10 +180,14 @@ async def _process_and_ingest_pdf_once(file_content: bytes, filename: str, uploa
                 _log(f"Skipping question #{idx}: missing question_text", upload_id=upload_id)
                 continue
 
-            @retry(wait=wait_exponential(multiplier=2, min=4, max=60), stop=stop_after_attempt(5))
+            @retry(
+                wait=wait_exponential(multiplier=2, min=4, max=60),
+                stop=stop_after_attempt(5),
+                retry=retry_if_exception(_is_retryable_error),
+            )
             def _embed_question():
                 return client.models.embed_content(
-                    model="text-embedding-004",
+                    model="gemini-embedding-001",
                     contents=question_text,
                     config=genai.types.EmbedContentConfig(output_dimensionality=768)
                 )

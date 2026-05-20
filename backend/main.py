@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 import logging
@@ -207,7 +208,7 @@ class CloneRequest(BaseModel):
 @app.post("/generate-clone/")
 async def generate_clone(request: CloneRequest):
     try:
-        clone = await generate_question_clone(request.topic, request.difficulty)
+        clone = await asyncio.to_thread(generate_question_clone, request.topic, request.difficulty)
     except Exception as exc:
         add_log(
             f"Falling back to local clone for topic={request.topic!r}, difficulty={request.difficulty!r}: {exc}",
