@@ -20,6 +20,7 @@ os.environ.setdefault("DATABASE_URL", "file:./dev.db")
 
 app = FastAPI(title="CAT Prep API")
 db = Prisma()
+db_connected = False
 
 
 class AdminLogHandler(logging.Handler):
@@ -123,14 +124,23 @@ async def request_logging_middleware(request: Request, call_next):
 
 @app.on_event("startup")
 async def startup():
-    await db.connect()
-    backend_logger.info("Backend startup complete. Prisma connected.")
+    global db_connected
+    try:
+        await db.connect()
+        db_connected = True
+        backend_logger.info("Backend startup complete. Prisma connected.")
+    except Exception as exc:
+        db_connected = False
+        backend_logger.warning("Backend startup completed without Prisma connection: %s", exc)
 
 @app.on_event("shutdown")
 async def shutdown():
     backend_logger.info("Backend shutdown started.")
-    await db.disconnect()
-    backend_logger.info("Backend shutdown complete. Prisma disconnected.")
+    if db_connected:
+        await db.disconnect()
+        backend_logger.info("Backend shutdown complete. Prisma disconnected.")
+    else:
+        backend_logger.info("Backend shutdown complete. Prisma was not connected.")
 
 @app.get("/")
 def read_root():
@@ -209,13 +219,26 @@ async def generate_clone(request: CloneRequest):
 # --- DB Routes ---
 @app.get("/questions/")
 async def get_questions():
-    questions = await db.question.find_many(take=10)
-    return questions
+    if not db_connected:
+        return []
+
+    try:
+        questions = await db.question.find_many(take=10)
+        return questions
+    except Exception as exc:
+        backend_logger.warning("Failed to read questions from Prisma: %s", exc)
+        return []
 
 @app.get("/flashcards/")
 async def get_flashcards():
+    flashcards = []
+
     # In a real app, you'd filter by due date: db.flashcardreview.find_many(where={"nextReviewDate": {"lte": datetime.now()}})
-    flashcards = await db.flashcard.find_many(take=25)
+    if db_connected:
+        try:
+            flashcards = await db.flashcard.find_many(take=25)
+        except Exception as exc:
+            backend_logger.warning("Failed to read flashcards from Prisma: %s", exc)
     
     # If DB is empty, return dummy data to prevent frontend crash
     if not flashcards:
