@@ -1,6 +1,7 @@
 import os
 from google import genai
 from pinecone import Pinecone
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 index_name = os.environ.get("PINECONE_INDEX_NAME", "cat-prep-index")
 
@@ -23,11 +24,15 @@ async def generate_question_clone(topic: str, difficulty: str):
     # Step 1: Embed the query to find similar questions in Pinecone
     query_text = f"{topic} CAT question {difficulty} difficulty"
     
-    embed_response = client.models.embed_content(
-        model="gemini-embedding-001",
-        contents=query_text,
-        config=genai.types.EmbedContentConfig(output_dimensionality=768)
-    )
+    @retry(wait=wait_exponential(multiplier=2, min=4, max=60), stop=stop_after_attempt(5))
+    def _embed_query():
+        return client.models.embed_content(
+            model="text-embedding-004",
+            contents=query_text,
+            config=genai.types.EmbedContentConfig(output_dimensionality=768)
+        )
+    
+    embed_response = _embed_query()
     embedding = embed_response.embeddings[0].values
     
     index = pc.Index(index_name)
@@ -55,13 +60,39 @@ async def generate_question_clone(topic: str, difficulty: str):
     Return as JSON: {{"question_text": "...", "options": ["A", "B", "C", "D"], "answer": "...", "concept_hint": "..."}}
     """
     
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt,
-        config=genai.types.GenerateContentConfig(
-            response_mime_type="application/json",
+    @retry(wait=wait_exponential(multiplier=2, min=4, max=60), stop=stop_after_attempt(5))
+    def _generate_clone():
+        return client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=genai.types.GenerateContentConfig(
+                response_mime_type="application/json",
+            )
         )
-    )
     
-    import json
-    return json.loads(response.text)
+    try:
+        response = _generate_clone()
+        import json
+        return json.loads(response.text)
+    except Exception as e:
+        puter_key = os.environ.get("PUTER_API_KEY")
+        if puter_key:
+            print("Gemini clone failed, falling back to Puter AI...", e)
+            import openai
+            import json
+            puter_client = openai.OpenAI(api_key=puter_key, base_url="https://api.puter.com/puterai/openai/v1/")
+            completion = puter_client.chat.completions.create(
+                model="claude-3-5-sonnet",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            
+            # Puter models might return markdown blocks like ```json ... ```
+            content = completion.choices[0].message.content.strip()
+            if content.startswith("```json"):
+                content = content[7:-3].strip()
+            elif content.startswith("```"):
+                content = content[3:-3].strip()
+                
+            return json.loads(content)
+        else:
+            raise e

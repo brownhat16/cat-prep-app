@@ -16,6 +16,7 @@ from admin_state import (
 )
 from google import genai
 from pinecone import Pinecone
+from tenacity import retry, stop_after_attempt, wait_exponential
 
 index_name = os.environ.get("PINECONE_INDEX_NAME", "cat-prep-index")
 
@@ -119,19 +120,37 @@ async def _process_and_ingest_pdf_once(file_content: bytes, filename: str, uploa
     Text:
     """ + chunk
     
-    response = client.models.generate_content(
-        model='gemini-2.5-flash',
-        contents=prompt,
-        config=genai.types.GenerateContentConfig(
-            response_mime_type="application/json",
+    @retry(wait=wait_exponential(multiplier=2, min=4, max=60), stop=stop_after_attempt(5))
+    def _generate_questions():
+        return client.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=prompt,
+            config=genai.types.GenerateContentConfig(
+                response_mime_type="application/json",
+            )
         )
-    )
-
-    response_text = response.text or ""
-    _log(
-        f"Gemini returned chars={len(response_text)} preview={response_text[:300]!r}",
-        upload_id=upload_id,
-    )
+    
+    try:
+        response = _generate_questions()
+        response_text = response.text or ""
+    except Exception as e:
+        puter_key = os.environ.get("PUTER_API_KEY")
+        if puter_key:
+            _log(f"Gemini ingest failed, falling back to Puter AI... {e}", upload_id=upload_id, level="warning")
+            import openai
+            puter_client = openai.OpenAI(api_key=puter_key, base_url="https://api.puter.com/puterai/openai/v1/")
+            completion = puter_client.chat.completions.create(
+                model="claude-3-5-sonnet",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            content = completion.choices[0].message.content.strip()
+            if content.startswith("```json"):
+                content = content[7:-3].strip()
+            elif content.startswith("```"):
+                content = content[3:-3].strip()
+            response_text = content
+        else:
+            raise e
     
     try:
         questions = json.loads(response_text)
@@ -157,11 +176,15 @@ async def _process_and_ingest_pdf_once(file_content: bytes, filename: str, uploa
                 _log(f"Skipping question #{idx}: missing question_text", upload_id=upload_id)
                 continue
 
-            embed_response = client.models.embed_content(
-                model="gemini-embedding-001",
-                contents=question_text,
-                config=genai.types.EmbedContentConfig(output_dimensionality=768)
-            )
+            @retry(wait=wait_exponential(multiplier=2, min=4, max=60), stop=stop_after_attempt(5))
+            def _embed_question():
+                return client.models.embed_content(
+                    model="text-embedding-004",
+                    contents=question_text,
+                    config=genai.types.EmbedContentConfig(output_dimensionality=768)
+                )
+
+            embed_response = _embed_question()
             embedding = embed_response.embeddings[0].values
             
             # Create a unique ID for pinecone
