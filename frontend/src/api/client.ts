@@ -7,17 +7,8 @@ function getApiUrl() {
     return process.env.EXPO_PUBLIC_API_URL;
   }
 
-  const hostUri = Constants.expoConfig?.hostUri ?? Constants.expoGoConfig?.debuggerHost ?? Constants.platform?.hostUri;
-  if (hostUri) {
-    const host = hostUri.split(':')[0];
-    return `http://${host}:8000`;
-  }
-
-  if (Platform.OS === 'android') {
-    return 'http://10.0.2.2:8000';
-  }
-
-  return 'http://127.0.0.1:8000';
+  // Production: always use deployed Render backend
+  return 'https://cat-backend-bdyo.onrender.com';
 }
 
 const API_URL = getApiUrl();
