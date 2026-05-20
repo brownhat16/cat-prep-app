@@ -108,17 +108,17 @@ export default function Home() {
               </View>
 
               <Pressable
-                onPress={() => Linking.openURL('https://puter.com/dashboard/developer/api-keys')}
+                onPress={() => Linking.openURL('https://puter.com/dashboard')}
                 className="mb-4 py-2 bg-secondary-container/20 border border-secondary/30 rounded-lg items-center active:opacity-85"
               >
-                <Text className="text-xs font-semibold text-secondary">1. Get API Key from Puter Dashboard</Text>
+                <Text className="text-xs font-semibold text-secondary">1. Open Puter Dashboard & Click "Copy Token"</Text>
               </Pressable>
 
               <View className="flex-row gap-2">
                 <TextInput
                   value={keyInput}
                   onChangeText={setKeyInput}
-                  placeholder="Paste Puter API Key here..."
+                  placeholder="Paste Puter Auth Token here..."
                   placeholderTextColor="#8b919d"
                   secureTextEntry
                   className="flex-1 bg-surface-container-highest px-3 py-2 rounded-lg text-sm text-on-surface border border-outline-variant/30"
@@ -127,7 +127,7 @@ export default function Home() {
                   onPress={() => saveApiKey(keyInput)}
                   className="bg-primary px-4 py-2 rounded-lg justify-center items-center active:opacity-85"
                 >
-                  <Text className="text-xs font-bold text-white">Save Key</Text>
+                  <Text className="text-xs font-bold text-white">Save Token</Text>
                 </Pressable>
               </View>
             </View>
