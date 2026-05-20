@@ -9,6 +9,26 @@ export default function MockExam() {
   const insets = useSafeAreaInsets();
   const [selectedOption, setSelectedOption] = useState<number | null>(1);
   const [showGrid, setShowGrid] = useState(false);
+  const [currentQuestion, setCurrentQuestion] = useState(12);
+  const [markedQuestions, setMarkedQuestions] = useState<number[]>([4]);
+
+  const handleSaveAndNext = () => {
+    setSelectedOption(null);
+    setCurrentQuestion((prev) => (prev >= 40 ? 1 : prev + 1));
+  };
+
+  const toggleReview = () => {
+    setMarkedQuestions((prev) =>
+      prev.includes(currentQuestion)
+        ? prev.filter((question) => question !== currentQuestion)
+        : [...prev, currentQuestion]
+    );
+  };
+
+  const goToQuestion = (questionNumber: number) => {
+    setCurrentQuestion(questionNumber);
+    setShowGrid(false);
+  };
 
   const handleSubmit = async () => {
     try {
@@ -50,7 +70,7 @@ export default function MockExam() {
               <View className="px-2 py-1 bg-surface-container rounded-md border border-primary/20">
                 <Text className="text-[10px] font-medium tracking-widest text-primary">VARC</Text>
               </View>
-              <Text className="text-sm font-semibold text-on-surface-variant">Question 12 of 40</Text>
+              <Text className="text-sm font-semibold text-on-surface-variant">Question {currentQuestion} of 40</Text>
             </View>
             <View className="flex-row items-center gap-1">
               <View className="w-2 h-2 rounded-full bg-error" />
@@ -100,15 +120,15 @@ export default function MockExam() {
 
           {/* Action Buttons */}
           <View className="flex-row items-center justify-between pt-4">
-            <Pressable className="px-4 py-2 rounded-lg border border-outline-variant flex-row items-center gap-2 active:bg-surface-variant">
+            <Pressable onPress={toggleReview} className={`px-4 py-2 rounded-lg border flex-row items-center gap-2 active:bg-surface-variant ${markedQuestions.includes(currentQuestion) ? 'border-tertiary bg-tertiary-container/10' : 'border-outline-variant'}`}>
               <BookmarkPlus color="#c1c7d3" size={16} />
-              <Text className="text-sm font-semibold text-on-surface-variant">Mark Review</Text>
+              <Text className="text-sm font-semibold text-on-surface-variant">{markedQuestions.includes(currentQuestion) ? 'Marked' : 'Mark Review'}</Text>
             </Pressable>
             <View className="flex-row gap-3">
               <Pressable className="px-4 py-2 rounded-lg border border-outline-variant active:bg-surface-variant" onPress={() => setSelectedOption(null)}>
                 <Text className="text-sm font-semibold text-on-surface-variant">Clear</Text>
               </Pressable>
-              <Pressable className="px-6 py-2 rounded-lg bg-primary active:opacity-80">
+              <Pressable onPress={handleSaveAndNext} className="px-6 py-2 rounded-lg bg-primary active:opacity-80">
                 <Text className="text-sm font-semibold text-on-primary">Save & Next</Text>
               </Pressable>
             </View>
@@ -121,7 +141,7 @@ export default function MockExam() {
             <GridIcon color="#c1c7d3" size={20} />
             <Text className="text-sm font-semibold text-on-surface-variant">Palette</Text>
           </Pressable>
-          <Pressable className="px-6 py-3 rounded-lg bg-primary active:opacity-80">
+          <Pressable onPress={handleSaveAndNext} className="px-6 py-3 rounded-lg bg-primary active:opacity-80">
             <Text className="text-sm font-semibold text-on-primary">Save & Next</Text>
           </Pressable>
         </View>
@@ -149,10 +169,10 @@ export default function MockExam() {
                   let textClass = "text-on-surface-variant";
                   if (num === 1 || num === 2 || num === 5) { bgClass = "bg-status-answered"; textClass = "text-surface-dim"; }
                   if (num === 3 || num === 11) { bgClass = "bg-status-unanswered"; textClass = "text-surface-dim"; }
-                  if (num === 4) { bgClass = "bg-status-review"; textClass = "text-surface-dim"; }
-                  if (num === 12) { bgClass = "bg-primary border-2 border-white"; textClass = "text-on-primary"; } // Active
+                  if (markedQuestions.includes(num)) { bgClass = "bg-status-review"; textClass = "text-surface-dim"; }
+                  if (num === currentQuestion) { bgClass = "bg-primary border-2 border-white"; textClass = "text-on-primary"; }
                   return (
-                    <Pressable key={i} className={`w-[18%] aspect-square rounded-md items-center justify-center ${bgClass}`}>
+                    <Pressable key={i} onPress={() => goToQuestion(num)} className={`w-[18%] aspect-square rounded-md items-center justify-center ${bgClass}`}>
                       <Text className={`text-xs font-medium ${textClass}`}>{num}</Text>
                     </Pressable>
                   );

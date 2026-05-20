@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 from admin_state import add_log, create_upload, get_vector_status, list_logs, list_uploads
 from admin_ui import render_admin_html
 from services.rag_service import process_and_ingest_pdf
-from services.ai_service import generate_question_clone
+from services.ai_service import generate_flashcards as build_flashcards, generate_question_clone
 
 load_dotenv()
 os.environ.setdefault("DATABASE_URL", "file:./dev.db")
@@ -387,56 +387,11 @@ class FlashcardGenerateRequest(BaseModel):
 
 @app.post("/generate-flashcards/")
 async def generate_flashcards(request: FlashcardGenerateRequest):
-    """Generate AI-powered flashcards for a given topic."""
-    import json
-    from google import genai
-
-    prompt = f"""You are an expert CAT exam tutor. Generate {request.count} high-quality flashcards for the topic: "{request.topic}".
-Each flashcard should have:
-- front: A concise question, formula name, or concept title
-- back: The answer, formula, or key definition
-- explanation: A brief explanation of why this is important for CAT
-- topic: "{request.topic}"
-
-Return ONLY a valid JSON array: [{{"front": "...", "back": "...", "explanation": "...", "topic": "{request.topic}"}}]"""
-
     try:
-        gemini_key = os.environ.get("GEMINI_API_KEY")
-        if gemini_key:
-            client = genai.Client(api_key=gemini_key)
-            response = client.models.generate_content(
-                model='gemini-2.5-flash',
-                contents=prompt,
-                config=genai.types.GenerateContentConfig(response_mime_type="application/json"),
-            )
-            cards = json.loads(response.text)
-        else:
-            raise RuntimeError("No Gemini key")
+        cards = await asyncio.to_thread(build_flashcards, request.topic, request.count)
     except Exception as exc:
-        backend_logger.warning("Gemini flashcard generation failed: %s", exc)
-        # Puter fallback
-        puter_key = os.environ.get("PUTER_API_KEY")
-        if puter_key:
-            import openai
-            puter_client = openai.OpenAI(api_key=puter_key, base_url="https://api.puter.com/puterai/openai/v1/")
-            completion = puter_client.chat.completions.create(
-                model="claude-3-5-sonnet",
-                messages=[{"role": "user", "content": prompt}]
-            )
-            content = completion.choices[0].message.content.strip()
-            if content.startswith("```json"): content = content[7:-3].strip()
-            elif content.startswith("```"): content = content[3:-3].strip()
-            cards = json.loads(content)
-        else:
-            # Hardcoded fallback
-            cards = [
-                {"front": f"{request.topic}: Key Formula", "back": "Review this topic in your study material", "explanation": "AI generation temporarily unavailable", "topic": request.topic}
-            ]
-
-    # Add unique IDs
-    import uuid
-    for card in cards:
-        card["id"] = str(uuid.uuid4())
+        backend_logger.warning("Flashcard generation failed hard for topic=%r: %s", request.topic, exc)
+        cards = await asyncio.to_thread(build_flashcards, request.topic, 1)
 
     return {"flashcards": cards, "count": len(cards)}
 

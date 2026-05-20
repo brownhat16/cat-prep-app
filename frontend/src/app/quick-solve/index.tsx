@@ -11,6 +11,7 @@ export default function QuickSolve() {
   const [showHint, setShowHint] = useState(false);
   const [loadingClone, setLoadingClone] = useState(false);
   const [aiSource, setAiSource] = useState<'gemini' | 'puter' | null>(null);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const { isConnected, chat: puterChat } = usePuter();
 
   // Dummy question state
@@ -31,6 +32,7 @@ export default function QuickSolve() {
         hint: cloneData.concept_hint,
         options: cloneData.options
       });
+      setSelectedOption(null);
       setShowHint(false);
       setAiSource('gemini');
     } catch (error) {
@@ -65,6 +67,7 @@ Return ONLY valid JSON (no markdown, no code blocks): {"question_text": "...", "
             hint: cloneData.concept_hint,
             options: cloneData.options
           });
+          setSelectedOption(null);
           setShowHint(false);
           setAiSource('puter');
         } catch (puterError) {
@@ -75,6 +78,7 @@ Return ONLY valid JSON (no markdown, no code blocks): {"question_text": "...", "
             hint: "Follow the same logical deduction structure as the original puzzle.",
             options: ["Red, Green, Black, Yellow, Blue", "Red, Black, Green, Blue, Yellow", "Red, Green, Yellow, Blue, Black", "Red, Blue, Green, Yellow, Black"]
           });
+          setSelectedOption(null);
         }
       } else {
         // No Puter, use dummy fallback
@@ -83,6 +87,7 @@ Return ONLY valid JSON (no markdown, no code blocks): {"question_text": "...", "
           hint: "Follow the same logical deduction structure as the original puzzle.",
           options: ["Red, Green, Black, Yellow, Blue", "Red, Black, Green, Blue, Yellow", "Red, Green, Yellow, Blue, Black", "Red, Blue, Green, Yellow, Black"]
         });
+        setSelectedOption(null);
       }
     } finally {
       setLoadingClone(false);
@@ -99,12 +104,14 @@ Return ONLY valid JSON (no markdown, no code blocks): {"question_text": "...", "
           </Pressable>
         </Link>
         <Text className="font-bold text-xl text-primary tracking-tighter">CAT MASTER AI</Text>
-        <Pressable className="p-1 rounded-full border border-outline-variant/50 overflow-hidden">
-          <Image 
-            source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDKDfmwxGiQe-rvkkgQXfNlLAxOztmBApsXJs1KgtVInI5RodSP4bpYR-wIwbM21dDCzg-qUyH-Mooh27lbnSRBr-aQqtWtTepE9ZgmKwGr7ubeQstnFX1MA_grzU638PsOvAeVUAApfKmtW5Y45AzO2_MzEfin5cYj_ilXMBolWlEqYz9kkQE5VBLMVv8zjEwxEZyoLo7HpKhy6wNDeb6adzFPsQwz2odPZ7BgB7wbQ7EjwNSbSGfPFNZ0R0z2EgPjCGwKq1zJFDQ' }}
-            className="w-8 h-8 rounded-full"
-          />
-        </Pressable>
+        <Link href="/analytics" asChild>
+          <Pressable className="p-1 rounded-full border border-outline-variant/50 overflow-hidden">
+            <Image 
+              source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDKDfmwxGiQe-rvkkgQXfNlLAxOztmBApsXJs1KgtVInI5RodSP4bpYR-wIwbM21dDCzg-qUyH-Mooh27lbnSRBr-aQqtWtTepE9ZgmKwGr7ubeQstnFX1MA_grzU638PsOvAeVUAApfKmtW5Y45AzO2_MzEfin5cYj_ilXMBolWlEqYz9kkQE5VBLMVv8zjEwxEZyoLo7HpKhy6wNDeb6adzFPsQwz2odPZ7BgB7wbQ7EjwNSbSGfPFNZ0R0z2EgPjCGwKq1zJFDQ' }}
+              className="w-8 h-8 rounded-full"
+            />
+          </Pressable>
+        </Link>
       </View>
 
       <View className="flex-1 px-4 pt-6 justify-center items-center">
@@ -138,9 +145,13 @@ Return ONLY valid JSON (no markdown, no code blocks): {"question_text": "...", "
 
           <View className="gap-3 mb-6">
             {question.options.map((opt, i) => (
-              <Pressable key={i} className="w-full p-4 rounded-xl border border-outline-variant/50 active:bg-surface-variant flex-row items-center gap-3">
-                <View className="w-6 h-6 rounded-full border border-outline-variant items-center justify-center">
-                  <Text className="text-xs text-on-surface-variant font-medium">{String.fromCharCode(65 + i)}</Text>
+              <Pressable
+                key={i}
+                onPress={() => setSelectedOption(i)}
+                className={`w-full p-4 rounded-xl border flex-row items-center gap-3 active:bg-surface-variant ${selectedOption === i ? 'border-primary bg-primary/10' : 'border-outline-variant/50'}`}
+              >
+                <View className={`w-6 h-6 rounded-full border items-center justify-center ${selectedOption === i ? 'border-primary bg-primary/10' : 'border-outline-variant'}`}>
+                  <Text className={`text-xs font-medium ${selectedOption === i ? 'text-primary' : 'text-on-surface-variant'}`}>{String.fromCharCode(65 + i)}</Text>
                 </View>
                 <Text className="flex-1 text-base text-on-surface">{opt}</Text>
               </Pressable>

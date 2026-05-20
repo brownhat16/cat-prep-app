@@ -13,16 +13,20 @@ export default function Home() {
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
       {/* TopAppBar */}
       <View className="w-full bg-surface/60 border-b border-outline-variant/30 flex-row items-center justify-between px-4 h-16">
-        <Pressable className="p-2 rounded-full active:bg-primary/10">
-          <Menu color="#a4c9ff" size={24} />
-        </Pressable>
+        <Link href="/analytics" asChild>
+          <Pressable className="p-2 rounded-full active:bg-primary/10">
+            <Menu color="#a4c9ff" size={24} />
+          </Pressable>
+        </Link>
         <Text className="font-bold text-2xl text-primary tracking-tighter">CAT MASTER AI</Text>
-        <Pressable className="p-1 rounded-full border border-primary/30 overflow-hidden">
-          <Image 
-            source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDJAhGXW17ZUrva_IWI_y66KZK17jFucuWdBOGiY27DiEAXMxpAyMVvq2qM1ZkzoByTdjHmP6iKhLp-xDLHYCKBASdPvOHo9cSGYh3P4RoaDInTo_WNcIS95Uzuqv2zs1jEEsNcNQqDA8ATht0iJeThc2bxlChQBE7f-9lwz15fPTOaD8PvtC_4sD4TGKM6suvjqm-U6vzVkpQLjbVp-8j2BM-jlJT22mGe5r4gg4B9bSyjFDgt90UfKdVRvRKdtzan0KYWo4rcx-4' }}
-            className="w-8 h-8 rounded-full"
-          />
-        </Pressable>
+        <Link href="/analytics" asChild>
+          <Pressable className="p-1 rounded-full border border-primary/30 overflow-hidden">
+            <Image 
+              source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDJAhGXW17ZUrva_IWI_y66KZK17jFucuWdBOGiY27DiEAXMxpAyMVvq2qM1ZkzoByTdjHmP6iKhLp-xDLHYCKBASdPvOHo9cSGYh3P4RoaDInTo_WNcIS95Uzuqv2zs1jEEsNcNQqDA8ATht0iJeThc2bxlChQBE7f-9lwz15fPTOaD8PvtC_4sD4TGKM6suvjqm-U6vzVkpQLjbVp-8j2BM-jlJT22mGe5r4gg4B9bSyjFDgt90UfKdVRvRKdtzan0KYWo4rcx-4' }}
+              className="w-8 h-8 rounded-full"
+            />
+          </Pressable>
+        </Link>
       </View>
 
       <ScrollView className="flex-1 px-4 pt-6" contentContainerStyle={{ paddingBottom: 100 }}>
@@ -38,9 +42,11 @@ export default function Home() {
           <View className="bg-surface-container-low/50 p-4 rounded-lg border border-outline-variant/50">
             <Text className="text-xs font-medium text-primary tracking-widest mb-1">CURRENT FOCUS</Text>
             <Text className="text-lg font-semibold text-on-surface mb-4">Data Interpretation: Radar Charts</Text>
-            <Pressable className="bg-primary-container py-2 px-6 rounded-lg items-center active:opacity-80">
-              <Text className="text-on-primary-container font-semibold">Continue Learning</Text>
-            </Pressable>
+            <Link href="/quick-solve" asChild>
+              <Pressable className="bg-primary-container py-2 px-6 rounded-lg items-center active:opacity-80">
+                <Text className="text-on-primary-container font-semibold">Continue Learning</Text>
+              </Pressable>
+            </Link>
           </View>
         </View>
 
@@ -57,10 +63,12 @@ export default function Home() {
             <View className="flex-1">
               <Text className="text-lg font-semibold text-on-surface mb-1">Focus: Algebra & Number Systems</Text>
               <Text className="text-sm text-on-surface-variant mb-3">Your recent mock showed a 15% dip in quadratic equations accuracy. We've curated 10 high-yield questions for you.</Text>
-              <Pressable className="flex-row items-center gap-1">
-                <Text className="text-primary text-sm font-semibold">Start Module</Text>
-                <ArrowRight color="#a4c9ff" size={16} />
-              </Pressable>
+              <Link href={{ pathname: '/flashcards', params: { topic: 'Algebra' } }} asChild>
+                <Pressable className="flex-row items-center gap-1">
+                  <Text className="text-primary text-sm font-semibold">Start Module</Text>
+                  <ArrowRight color="#a4c9ff" size={16} />
+                </Pressable>
+              </Link>
             </View>
           </View>
         </View>
@@ -155,7 +163,11 @@ export default function Home() {
         <View>
           <View className="flex-row items-center justify-between mb-4">
             <Text className="text-lg font-semibold text-on-surface">Recent Activity</Text>
-            <Text className="text-xs font-medium tracking-widest text-primary">VIEW ALL</Text>
+            <Link href="/analytics" asChild>
+              <Pressable className="active:opacity-80">
+                <Text className="text-xs font-medium tracking-widest text-primary">VIEW ALL</Text>
+              </Pressable>
+            </Link>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="pb-4" contentContainerStyle={{ gap: 16 }}>
             <View className="w-[280px] glass-card rounded-xl p-4 flex-col min-h-[100px]">

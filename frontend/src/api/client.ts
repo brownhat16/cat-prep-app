@@ -1,6 +1,4 @@
 import axios from 'axios';
-import Constants from 'expo-constants';
-import { Platform } from 'react-native';
 
 function getApiUrl() {
   if (process.env.EXPO_PUBLIC_API_URL) {
@@ -15,6 +13,7 @@ const API_URL = getApiUrl();
 
 export const apiClient = axios.create({
   baseURL: API_URL,
+  timeout: 15000,
   headers: {
     'Content-Type': 'application/json',
   },

@@ -6,37 +6,79 @@ import { LineChart, BarChart } from 'react-native-gifted-charts';
 import { Link } from 'expo-router';
 import { analyticsService } from '../../api/client';
 
+type TrendPoint = {
+  value: number;
+  label: string;
+};
+
+type SectionPoint = TrendPoint & {
+  frontColor?: string;
+};
+
+type AnalyticsData = {
+  totalTests: number;
+  currentStreak: number;
+  globalAccuracy: number;
+  netScoreTrend: TrendPoint[];
+  sectionalAccuracy: SectionPoint[];
+  criticalAlert: string;
+};
+
+const FALLBACK_ANALYTICS: AnalyticsData = {
+  totalTests: 14,
+  currentStreak: 12,
+  globalAccuracy: 84,
+  netScoreTrend: [
+    { value: 65, label: 'M1' }, { value: 72, label: 'M2' }, { value: 68, label: 'M3' }, { value: 85, label: 'M4' }, { value: 82, label: 'M5' }, { value: 95, label: 'M6' }, { value: 105, label: 'M7' }
+  ],
+  sectionalAccuracy: [
+    { value: 75, label: 'Quants', frontColor: '#6f00be' }, { value: 88, label: 'DILR', frontColor: '#a4c9ff' }, { value: 92, label: 'VARC', frontColor: '#ff7e2d' }
+  ],
+  criticalAlert: 'Average time on Quantitative Aptitude exceeds 150 seconds. AI recommends reviewing time management strategies for Algebra modules.'
+};
+
 export default function AnalyticsDashboard() {
   const insets = useSafeAreaInsets();
-  const [analytics, setAnalytics] = React.useState<any>(null);
+  const [analytics, setAnalytics] = React.useState<AnalyticsData | null>(null);
+  const [insightMessage, setInsightMessage] = React.useState<string | null>(null);
+
+  const fetchAnalytics = React.useCallback(async () => {
+    try {
+      const data = await analyticsService.getAnalytics() as AnalyticsData;
+      setAnalytics(data);
+    } catch (e) {
+      console.error("Failed to load analytics", e);
+      setAnalytics(FALLBACK_ANALYTICS);
+    }
+  }, []);
 
   React.useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
-        const data = await analyticsService.getAnalytics();
-        setAnalytics(data);
-      } catch (e) {
-        console.error("Failed to load analytics", e);
-        // Fallback
-        setAnalytics({
-          totalTests: 14,
-          currentStreak: 12,
-          globalAccuracy: 84,
-          netScoreTrend: [
-            { value: 65, label: 'M1' }, { value: 72, label: 'M2' }, { value: 68, label: 'M3' }, { value: 85, label: 'M4' }, { value: 82, label: 'M5' }, { value: 95, label: 'M6' }, { value: 105, label: 'M7' }
-          ],
-          sectionalAccuracy: [
-            { value: 75, label: 'Quants', frontColor: '#6f00be' }, { value: 88, label: 'DILR', frontColor: '#a4c9ff' }, { value: 92, label: 'VARC', frontColor: '#ff7e2d' }
-          ],
-          criticalAlert: "Average time on Quantitative Aptitude exceeds 150 seconds. AI recommends reviewing time management strategies for Algebra modules."
-        });
-      }
-    };
     fetchAnalytics();
-  }, []);
+  }, [fetchAnalytics]);
 
   const lineData = analytics?.netScoreTrend || [];
   const barData = analytics?.sectionalAccuracy || [];
+
+  const showTrendInsight = () => {
+    if (lineData.length < 2) {
+      setInsightMessage('Trend insight is not available yet.');
+      return;
+    }
+    const first = lineData[0];
+    const last = lineData[lineData.length - 1];
+    const delta = last.value - first.value;
+    setInsightMessage(`Net score moved from ${first.value} in ${first.label} to ${last.value} in ${last.label}, a ${delta >= 0 ? '+' : ''}${delta} point shift.`);
+  };
+
+  const showSectionInsight = () => {
+    if (barData.length === 0) {
+      setInsightMessage('Section insight is not available yet.');
+      return;
+    }
+    const strongest = [...barData].sort((a, b) => b.value - a.value)[0];
+    const weakest = [...barData].sort((a, b) => a.value - b.value)[0];
+    setInsightMessage(`Strongest section: ${strongest.label} at ${strongest.value}%. Weakest section: ${weakest.label} at ${weakest.value}%.`);
+  };
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
@@ -50,12 +92,14 @@ export default function AnalyticsDashboard() {
           </Link>
           <Text className="font-bold text-xl text-primary tracking-tighter">CAT MASTER AI</Text>
         </View>
-        <Pressable className="p-1 rounded-full border border-outline-variant/50 overflow-hidden">
-          <Image 
-            source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDKDfmwxGiQe-rvkkgQXfNlLAxOztmBApsXJs1KgtVInI5RodSP4bpYR-wIwbM21dDCzg-qUyH-Mooh27lbnSRBr-aQqtWtTepE9ZgmKwGr7ubeQstnFX1MA_grzU638PsOvAeVUAApfKmtW5Y45AzO2_MzEfin5cYj_ilXMBolWlEqYz9kkQE5VBLMVv8zjEwxEZyoLo7HpKhy6wNDeb6adzFPsQwz2odPZ7BgB7wbQ7EjwNSbSGfPFNZ0R0z2EgPjCGwKq1zJFDQ' }}
-            className="w-8 h-8 rounded-full"
-          />
-        </Pressable>
+        <Link href="/" asChild>
+          <Pressable className="p-1 rounded-full border border-outline-variant/50 overflow-hidden">
+            <Image 
+              source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDKDfmwxGiQe-rvkkgQXfNlLAxOztmBApsXJs1KgtVInI5RodSP4bpYR-wIwbM21dDCzg-qUyH-Mooh27lbnSRBr-aQqtWtTepE9ZgmKwGr7ubeQstnFX1MA_grzU638PsOvAeVUAApfKmtW5Y45AzO2_MzEfin5cYj_ilXMBolWlEqYz9kkQE5VBLMVv8zjEwxEZyoLo7HpKhy6wNDeb6adzFPsQwz2odPZ7BgB7wbQ7EjwNSbSGfPFNZ0R0z2EgPjCGwKq1zJFDQ' }}
+              className="w-8 h-8 rounded-full"
+            />
+          </Pressable>
+        </Link>
       </View>
 
       <ScrollView className="flex-1 px-4 pt-6" contentContainerStyle={{ paddingBottom: 100 }}>
@@ -77,6 +121,13 @@ export default function AnalyticsDashboard() {
                 Warning: {analytics.criticalAlert}
               </Text>
             </View>
+          </View>
+        )}
+
+        {insightMessage && (
+          <View className="bg-surface-container-high rounded-lg p-4 border border-outline-variant/40 mb-6">
+            <Text className="text-xs font-medium tracking-widest text-primary mb-2">INSIGHT</Text>
+            <Text className="text-sm text-on-surface-variant">{insightMessage}</Text>
           </View>
         )}
 
@@ -121,7 +172,9 @@ export default function AnalyticsDashboard() {
           <View className="glass-card rounded-xl p-4">
             <View className="flex-row justify-between items-center mb-6">
               <Text className="text-lg font-semibold text-on-surface">Net Score Trend</Text>
-              <Text className="text-[10px] font-medium tracking-widest text-primary">VIEW ALL</Text>
+              <Pressable onPress={showTrendInsight} className="active:opacity-80">
+                <Text className="text-[10px] font-medium tracking-widest text-primary">VIEW ALL</Text>
+              </Pressable>
             </View>
             <LineChart
               data={lineData}
@@ -145,7 +198,9 @@ export default function AnalyticsDashboard() {
           <View className="glass-card rounded-xl p-4">
             <View className="flex-row justify-between items-center mb-6">
               <Text className="text-lg font-semibold text-on-surface">Sectional Accuracy</Text>
-              <Text className="text-[10px] font-medium tracking-widest text-primary">DETAILS</Text>
+              <Pressable onPress={showSectionInsight} className="active:opacity-80">
+                <Text className="text-[10px] font-medium tracking-widest text-primary">DETAILS</Text>
+              </Pressable>
             </View>
             <BarChart
               data={barData}

@@ -2,21 +2,77 @@ import React, { useState, useRef } from 'react';
 import { View, Text, Pressable, Image, ScrollView, Animated, ActivityIndicator } from 'react-native';
 import { Menu, RefreshCcw, Volume2, Hand, Sparkles } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Link } from 'expo-router';
+import { Link, useLocalSearchParams } from 'expo-router';
 import { flashcardService } from '../../api/client';
 import { usePuter } from '../../providers/PuterProvider';
 
+type Flashcard = {
+  id: string;
+  topic: string;
+  front: string;
+  back: string;
+  explanation: string;
+};
+
+const TOPICS = ['Algebra', 'Probability', 'Geometry', 'Number Systems', 'Permutations', 'Time & Work', 'Profit & Loss', 'Averages'];
+
+function buildLocalFlashcards(topic: string, count: number = 5) {
+  const safeTopic = topic || 'CAT Concepts';
+  return [
+    {
+      id: `local-${safeTopic}-1`,
+      topic: safeTopic,
+      front: `${safeTopic}: Core Formula`,
+      back: 'Recall the main relationship or formula before solving.',
+      explanation: `Use this as the first-pass memory trigger for ${safeTopic}.`,
+    },
+    {
+      id: `local-${safeTopic}-2`,
+      topic: safeTopic,
+      front: `${safeTopic}: Typical Trap`,
+      back: 'Check constraints before committing to the first visible method.',
+      explanation: `Many CAT ${safeTopic} questions are designed to punish rushed assumptions.`,
+    },
+    {
+      id: `local-${safeTopic}-3`,
+      topic: safeTopic,
+      front: `${safeTopic}: Fast Strategy`,
+      back: 'Eliminate options structurally before doing full computation.',
+      explanation: 'This usually improves both accuracy and speed under timed conditions.',
+    },
+    {
+      id: `local-${safeTopic}-4`,
+      topic: safeTopic,
+      front: `${safeTopic}: Accuracy Check`,
+      back: 'Confirm the exact quantity asked in the final line.',
+      explanation: 'Correct working still loses marks if you answer the wrong target.',
+    },
+    {
+      id: `local-${safeTopic}-5`,
+      topic: safeTopic,
+      front: `${safeTopic}: Revision Prompt`,
+      back: 'Explain the concept in one line, then solve one representative question.',
+      explanation: 'Active recall plus immediate application is the most reliable revision loop.',
+    },
+  ].slice(0, Math.max(1, count));
+}
+
 export default function Flashcards() {
   const insets = useSafeAreaInsets();
+  const params = useLocalSearchParams<{ topic?: string }>();
   const [flipped, setFlipped] = useState(false);
-  const [flashcards, setFlashcards] = useState<any[]>([]);
+  const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [generating, setGenerating] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState('Algebra');
   const flipAnim = useRef(new Animated.Value(0)).current;
   const { isConnected, chat: puterChat } = usePuter();
 
-  const topics = ['Algebra', 'Probability', 'Geometry', 'Number Systems', 'Permutations', 'Time & Work', 'Profit & Loss', 'Averages'];
+  React.useEffect(() => {
+    if (typeof params.topic === 'string' && TOPICS.includes(params.topic)) {
+      setSelectedTopic(params.topic);
+    }
+  }, [params.topic]);
 
   const handleGenerateFlashcards = async () => {
     setGenerating(true);
@@ -24,6 +80,10 @@ export default function Flashcards() {
       const data = await flashcardService.generateFlashcards(selectedTopic, 5);
       if (data?.flashcards?.length > 0) {
         setFlashcards(data.flashcards);
+        setCurrentIndex(0);
+        if (flipped) flipCard();
+      } else {
+        setFlashcards(buildLocalFlashcards(selectedTopic, 5));
         setCurrentIndex(0);
         if (flipped) flipCard();
       }
@@ -37,12 +97,29 @@ export default function Flashcards() {
           if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
           if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
           if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
-          const cards = JSON.parse(cleaned.trim());
-          cards.forEach((c: any, i: number) => { c.id = `puter-${Date.now()}-${i}`; });
-          setFlashcards(cards);
+          const parsedCards = JSON.parse(cleaned.trim()) as Array<Partial<Flashcard>>;
+          const cards: Flashcard[] = parsedCards
+            .filter((card) => typeof card.front === 'string' && typeof card.back === 'string' && typeof card.explanation === 'string')
+            .map((card, i) => ({
+              id: `puter-${Date.now()}-${i}`,
+              topic: card.topic || selectedTopic,
+              front: card.front as string,
+              back: card.back as string,
+              explanation: card.explanation as string,
+            }));
+          setFlashcards(cards.length > 0 ? cards : buildLocalFlashcards(selectedTopic, 5));
           setCurrentIndex(0);
           if (flipped) flipCard();
-        } catch (pe) { console.error('Puter flashcard gen failed:', pe); }
+        } catch (pe) {
+          console.error('Puter flashcard gen failed:', pe);
+          setFlashcards(buildLocalFlashcards(selectedTopic, 5));
+          setCurrentIndex(0);
+          if (flipped) flipCard();
+        }
+      } else {
+        setFlashcards(buildLocalFlashcards(selectedTopic, 5));
+        setCurrentIndex(0);
+        if (flipped) flipCard();
       }
     } finally {
       setGenerating(false);
@@ -55,21 +132,15 @@ export default function Flashcards() {
         const data = await flashcardService.getFlashcards();
         if (data && data.length > 0) {
           setFlashcards(data);
+          return;
         }
       } catch (error) {
         console.error("Failed to load flashcards:", error);
-        // Fallback dummy
-        setFlashcards([{
-          id: "dummy-1",
-          topic: "Probability",
-          front: "Bayes' Theorem Formula",
-          back: "P(A|B) = [P(B|A) * P(A)] / P(B)",
-          explanation: "Describes the probability of an event, based on prior knowledge of conditions that might be related to the event."
-        }]);
       }
+      setFlashcards(buildLocalFlashcards(selectedTopic, 5));
     };
     loadFlashcards();
-  }, []);
+  }, [selectedTopic]);
 
   const flipCard = () => {
     Animated.spring(flipAnim, {
@@ -94,14 +165,13 @@ export default function Flashcards() {
     if (flashcards.length === 0) return;
     try {
       await flashcardService.reviewFlashcard(flashcards[currentIndex].id, difficulty);
-      // Move to next card, flip back
-      if (flipped) flipCard();
-      setTimeout(() => {
-        setCurrentIndex((prev) => (prev + 1) % flashcards.length);
-      }, 300);
     } catch (e) {
-      console.error(e);
+      console.warn('Review sync failed, advancing locally:', e);
     }
+    if (flipped) flipCard();
+    setTimeout(() => {
+      setCurrentIndex((prev) => (prev + 1) % flashcards.length);
+    }, 300);
   };
 
   const currentCard = flashcards[currentIndex];
@@ -116,12 +186,14 @@ export default function Flashcards() {
           </Pressable>
         </Link>
         <Text className="font-bold text-xl text-primary tracking-tighter">CAT MASTER AI</Text>
-        <Pressable className="p-1 rounded-full border border-outline-variant/50 overflow-hidden">
-          <Image 
-            source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBWIf5Ro8Y0lxBXiXaj8mw0LsB6oHUa4GJkFzP6szk2u_jnNTNnKNAThPxMyPg2c0ty1cx_Z-20M8W3K_1RkBPVlXGCAMTf4Fo2R3fK8vRNGQv31OUVtJchRE4J250oZTB70d9qoi8HJjYz72EfpdC_0IGFVMoFT5GJmER4EAbpeS8VRKvzOVCuloWjKnJUFPPGXcJ3-V4o6s-0WiMQq3lCX0PgCoUHafVCrixTN45kjIM595WSzxBpdwaWlT8KJxocgM6qEzSJUY8' }}
-            className="w-8 h-8 rounded-full"
-          />
-        </Pressable>
+        <Link href="/analytics" asChild>
+          <Pressable className="p-1 rounded-full border border-outline-variant/50 overflow-hidden">
+            <Image 
+              source={{ uri: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBWIf5Ro8Y0lxBXiXaj8mw0LsB6oHUa4GJkFzP6szk2u_jnNTNnKNAThPxMyPg2c0ty1cx_Z-20M8W3K_1RkBPVlXGCAMTf4Fo2R3fK8vRNGQv31OUVtJchRE4J250oZTB70d9qoi8HJjYz72EfpdC_0IGFVMoFT5GJmER4EAbpeS8VRKvzOVCuloWjKnJUFPPGXcJ3-V4o6s-0WiMQq3lCX0PgCoUHafVCrixTN45kjIM595WSzxBpdwaWlT8KJxocgM6qEzSJUY8' }}
+              className="w-8 h-8 rounded-full"
+            />
+          </Pressable>
+        </Link>
       </View>
 
       <View className="flex-1 items-center px-4 pt-8">
@@ -149,7 +221,7 @@ export default function Flashcards() {
         {/* Topic Selector & Generate */}
         <View className="w-full max-w-md mb-4">
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingVertical: 4 }}>
-            {topics.map((t) => (
+            {TOPICS.map((t) => (
               <Pressable
                 key={t}
                 onPress={() => setSelectedTopic(t)}
@@ -202,7 +274,7 @@ export default function Flashcards() {
           >
             <View className="flex-row items-center justify-between mb-6 pb-4 border-b border-outline-variant/30">
               <Text className="text-lg font-semibold text-secondary">Formula & Explanation</Text>
-              <Pressable>
+              <Pressable onPress={flipCard}>
                 <Volume2 color="#c1c7d3" size={20} />
               </Pressable>
             </View>

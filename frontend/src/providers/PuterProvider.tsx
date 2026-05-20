@@ -126,7 +126,7 @@ export function PuterProvider({ children }: { children: React.ReactNode }) {
       }
 
       return content;
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Puter secure native chat call failed:', error);
       throw error;
     }
