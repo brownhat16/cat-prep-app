@@ -1,19 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, Image, SafeAreaView, TextInput, Linking } from 'react-native';
+import React from 'react';
+import { View, Text, ScrollView, Pressable, Image, SafeAreaView } from 'react-native';
 import { Link } from 'expo-router';
 import { Menu, Flame, Lightbulb, ClipboardList, Swords, Library, BarChart2, Timer, ArrowRight, TrendingUp, Zap, LogOut } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePuter } from '../providers/PuterProvider';
+
 export default function Home() {
   const insets = useSafeAreaInsets();
-  const { isConnected, apiKey, saveApiKey, disconnect } = usePuter();
-  const [keyInput, setKeyInput] = useState('');
-
-  useEffect(() => {
-    if (apiKey) {
-      setKeyInput(apiKey);
-    }
-  }, [apiKey]);
+  const { isConnected, signIn, signOut } = usePuter();
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
@@ -88,7 +82,7 @@ export default function Home() {
                   </View>
                 </View>
                 <Pressable
-                  onPress={disconnect}
+                  onPress={signOut}
                   className="px-3 py-2 rounded-lg border border-outline-variant/50 active:bg-surface-variant"
                 >
                   <LogOut color="#8b919d" size={16} />
@@ -96,41 +90,21 @@ export default function Home() {
               </View>
             </View>
           ) : (
-            <View className="bg-surface-container-high rounded-xl p-5 border border-tertiary/30">
-              <View className="flex-row items-center gap-3 mb-4">
+            <Pressable
+              onPress={signIn}
+              className="bg-surface-container-high rounded-xl p-5 border border-tertiary/30 active:bg-surface-container-highest"
+            >
+              <View className="flex-row items-center gap-3">
                 <View className="bg-tertiary-container/20 p-3 rounded-full">
                   <Zap color="#ff7e2d" size={24} />
                 </View>
                 <View className="flex-1">
-                  <Text className="text-base font-semibold text-on-surface mb-1">Puter AI Fallback</Text>
-                  <Text className="text-xs text-on-surface-variant">Get free unlimited AI fallback when Gemini hits rate limits.</Text>
+                  <Text className="text-base font-semibold text-on-surface mb-1">Connect Puter AI</Text>
+                  <Text className="text-xs text-on-surface-variant">Free unlimited AI fallback when Gemini hits rate limits. No API keys required!</Text>
                 </View>
+                <ArrowRight color="#ff7e2d" size={20} />
               </View>
-
-              <Pressable
-                onPress={() => Linking.openURL('https://puter.com/dashboard')}
-                className="mb-4 py-2 bg-secondary-container/20 border border-secondary/30 rounded-lg items-center active:opacity-85"
-              >
-                <Text className="text-xs font-semibold text-secondary">1. Open Puter Dashboard & Click "Copy Token"</Text>
-              </Pressable>
-
-              <View className="flex-row gap-2">
-                <TextInput
-                  value={keyInput}
-                  onChangeText={setKeyInput}
-                  placeholder="Paste Puter Auth Token here..."
-                  placeholderTextColor="#8b919d"
-                  secureTextEntry
-                  className="flex-1 bg-surface-container-highest px-3 py-2 rounded-lg text-sm text-on-surface border border-outline-variant/30"
-                />
-                <Pressable
-                  onPress={() => saveApiKey(keyInput)}
-                  className="bg-primary px-4 py-2 rounded-lg justify-center items-center active:opacity-85"
-                >
-                  <Text className="text-xs font-bold text-white">Save Token</Text>
-                </Pressable>
-              </View>
-            </View>
+            </Pressable>
           )}
         </View>
 

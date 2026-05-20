@@ -153,6 +153,87 @@ def healthcheck():
     return {"status": "ok"}
 
 
+@app.get("/puter-bridge", response_class=HTMLResponse)
+def puter_bridge():
+    return """
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1">
+      <title>Puter Bridge</title>
+      <script src="https://js.puter.com/v2/"></script>
+      <style>
+        body { margin: 0; background: #0f131d; font-family: sans-serif; }
+      </style>
+    </head>
+    <body>
+    <script>
+      function sendToRN(type, payload) {
+        window.ReactNativeWebView.postMessage(JSON.stringify({ type, payload }));
+      }
+
+      setInterval(function() {
+        try {
+          const signedIn = puter.auth.isSignedIn();
+          sendToRN('auth_status', { signedIn: signedIn });
+        } catch(e) {
+          sendToRN('auth_status', { signedIn: false });
+        }
+      }, 1000);
+
+      window.addEventListener('message', async function(event) {
+        try {
+          const msg = JSON.parse(event.data);
+
+          if (msg.action === 'sign_in') {
+            try {
+              await puter.auth.signIn();
+              const user = await puter.auth.getUser();
+              sendToRN('auth_result', { success: true, username: user.username });
+            } catch(e) {
+              sendToRN('auth_result', { success: false, error: e.message || 'Sign in failed' });
+            }
+          }
+
+          else if (msg.action === 'sign_out') {
+            puter.auth.signOut();
+            sendToRN('auth_status', { signedIn: false });
+          }
+
+          else if (msg.action === 'chat') {
+            const response = await puter.ai.chat(msg.prompt, {
+              model: msg.model || 'gpt-4o-mini'
+            });
+
+            let text = '';
+            if (typeof response === 'string') {
+              text = response;
+            } else if (response && response.message && response.message.content) {
+              text = response.message.content;
+            } else if (response && response.text) {
+              text = response.text;
+            } else {
+              text = JSON.stringify(response);
+            }
+
+            sendToRN('chat_result', { success: true, text: text, requestId: msg.requestId });
+          }
+
+        } catch(e) {
+          sendToRN('error', { message: e.message || 'Unknown error', requestId: (JSON.parse(event.data)).requestId });
+        }
+      });
+
+      document.addEventListener('message', function(event) {
+        window.dispatchEvent(new MessageEvent('message', { data: event.data }));
+      });
+    </script>
+    </body>
+    </html>
+    """
+
+
 @app.get("/admin", response_class=HTMLResponse)
 def admin_page():
     return render_admin_html()
