@@ -124,9 +124,9 @@ Return ONLY valid JSON array (no markdown, no code blocks): [{"question_text":".
     return buildLocalArenaQueue(count);
   };
 
-  const topUpQueue = async (count: number = 10) => {
+  const topUpQueue = async (count: number = 1) => {
     const clones = await loadCloneBatch(count);
-    const merged = await mergeArenaQueue(clones, 10);
+    const merged = await mergeArenaQueue(clones, 1);
     setQueuedQuestions(merged);
   };
 
@@ -137,11 +137,15 @@ Return ONLY valid JSON array (no markdown, no code blocks): [{"question_text":".
       if (!active) {
         return;
       }
-      if (cached.length > 0) {
-        setQueuedQuestions(cached);
+      const trimmed = cached.slice(0, 1);
+      if (trimmed.length !== cached.length) {
+        await saveArenaQueue(trimmed);
       }
-      if (cached.length < 4) {
-        await topUpQueue(10 - cached.length);
+      if (trimmed.length > 0) {
+        setQueuedQuestions(trimmed);
+      }
+      if (trimmed.length < 1) {
+        await topUpQueue(1);
       }
     };
 
@@ -159,15 +163,13 @@ Return ONLY valid JSON array (no markdown, no code blocks): [{"question_text":".
       }
       applyQueuedQuestion(nextQuestion);
       setQueuedQuestions(remaining as QueuedArenaQuestion[]);
-      if (remaining.length < 4) {
-        void topUpQueue(10 - remaining.length);
-      }
+      void topUpQueue(1);
       return;
     }
 
     setLoadingClone(true);
     try {
-      const clones = await loadCloneBatch(10);
+      const clones = await loadCloneBatch(1);
       const [firstQuestion, ...remaining] = clones;
       if (firstQuestion) {
         applyQueuedQuestion(firstQuestion);
@@ -176,6 +178,7 @@ Return ONLY valid JSON array (no markdown, no code blocks): [{"question_text":".
       }
     } finally {
       setLoadingClone(false);
+      void topUpQueue(1);
     }
   };
 
@@ -221,7 +224,7 @@ Return ONLY valid JSON array (no markdown, no code blocks): [{"question_text":".
                 </View>
               )}
               <View className="px-2 py-1 rounded-full bg-surface-container border border-outline-variant/40">
-                <Text className="text-[9px] font-bold tracking-wider text-on-surface-variant">{queuedQuestions.length} READY</Text>
+                <Text className="text-[9px] font-bold tracking-wider text-on-surface-variant">{queuedQuestions.length > 0 ? 'NEXT READY' : 'PREFETCHING'}</Text>
               </View>
               <Text className="text-sm font-semibold text-secondary">02:18</Text>
             </View>
