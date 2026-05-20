@@ -154,81 +154,127 @@ def healthcheck():
 
 
 @app.get("/puter-bridge", response_class=HTMLResponse)
-def puter_bridge():
-    return """
+def puter_bridge(redirect: str = "frontend://"):
+    return f"""
     <!DOCTYPE html>
     <html>
     <head>
       <meta charset="utf-8">
       <meta name="viewport" content="width=device-width, initial-scale=1">
-      <title>Puter Bridge</title>
+      <title>Connect Puter AI - CAT Master</title>
       <script src="https://js.puter.com/v2/"></script>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
       <style>
-        body { margin: 0; background: #0f131d; font-family: sans-serif; }
+        * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+        body {{
+          background: #0f131d;
+          color: #c1c7d3;
+          font-family: 'Plus Jakarta Sans', sans-serif;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          min-height: 100vh;
+          padding: 20px;
+        }}
+        .card {{
+          background: rgba(26, 31, 46, 0.8);
+          border: 1px solid rgba(164, 201, 255, 0.15);
+          border-radius: 24px;
+          padding: 40px;
+          width: 100%;
+          max-width: 440px;
+          text-align: center;
+          box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+          backdrop-filter: blur(10px);
+        }}
+        h1 {{
+          color: #a4c9ff;
+          font-size: 24px;
+          font-weight: 700;
+          margin-bottom: 12px;
+        }}
+        p {{
+          color: #8b919d;
+          font-size: 14px;
+          line-height: 1.6;
+          margin-bottom: 30px;
+        }}
+        .btn {{
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 100%;
+          padding: 16px;
+          background: #a4c9ff;
+          color: #0f131d;
+          border: none;
+          border-radius: 14px;
+          font-size: 16px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          text-decoration: none;
+        }}
+        .btn:hover {{
+          opacity: 0.9;
+          transform: translateY(-1px);
+        }}
+        .spinner {{
+          border: 3px solid rgba(255,255,255,0.1);
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border-left-color: #a4c9ff;
+          animation: spin 1s linear infinite;
+          margin: 0 auto 20px auto;
+        }}
+        @keyframes spin {{ 0% {{ transform: rotate(0deg); }} 100% {{ transform: rotate(360deg); }} }}
       </style>
     </head>
     <body>
-    <script>
-      function sendToRN(type, payload) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ type, payload }));
-      }
+      <div class="card" id="card">
+        <div class="spinner"></div>
+        <h1>Initializing Puter Connection</h1>
+        <p>Please wait while we set up secure keyless connection...</p>
+      </div>
 
-      setInterval(function() {
-        try {
-          const signedIn = puter.auth.isSignedIn();
-          sendToRN('auth_status', { signedIn: signedIn });
-        } catch(e) {
-          sendToRN('auth_status', { signedIn: false });
-        }
-      }, 1000);
+      <script>
+        const redirectUrl = "{redirect}";
 
-      window.addEventListener('message', async function(event) {
-        try {
-          const msg = JSON.parse(event.data);
+        function updateUI(signedIn) {{
+          const card = document.getElementById('card');
+          if (signedIn) {{
+            const token = localStorage.getItem('puter.auth.token');
+            card.innerHTML = `
+              <div class="spinner"></div>
+              <h1 style="color: #4ade80;">Success! Connected</h1>
+              <p>Authenticating your session securely. Redirecting you back to the CAT Master app...</p>
+            `;
+            setTimeout(() => {{
+              window.location.href = redirectUrl + "login?token=" + encodeURIComponent(token);
+            }}, 1500);
+          }} else {{
+            card.innerHTML = `
+              <div style="font-size: 48px; margin-bottom: 20px;">⚡</div>
+              <h1>Connect Puter AI</h1>
+              <p>Sign in to your free Puter account to unlock unlimited high-speed AI fallback when Gemini hits rate limits.</p>
+              <button class="btn" id="loginBtn">Connect Puter Account</button>
+            `;
+            document.getElementById('loginBtn').addEventListener('click', function() {{
+              puter.auth.signIn();
+            }});
+          }}
+        }}
 
-          if (msg.action === 'sign_in') {
-            try {
-              await puter.auth.signIn();
-              const user = await puter.auth.getUser();
-              sendToRN('auth_result', { success: true, username: user.username });
-            } catch(e) {
-              sendToRN('auth_result', { success: false, error: e.message || 'Sign in failed' });
-            }
-          }
-
-          else if (msg.action === 'sign_out') {
-            puter.auth.signOut();
-            sendToRN('auth_status', { signedIn: false });
-          }
-
-          else if (msg.action === 'chat') {
-            const response = await puter.ai.chat(msg.prompt, {
-              model: msg.model || 'gpt-4o-mini'
-            });
-
-            let text = '';
-            if (typeof response === 'string') {
-              text = response;
-            } else if (response && response.message && response.message.content) {
-              text = response.message.content;
-            } else if (response && response.text) {
-              text = response.text;
-            } else {
-              text = JSON.stringify(response);
-            }
-
-            sendToRN('chat_result', { success: true, text: text, requestId: msg.requestId });
-          }
-
-        } catch(e) {
-          sendToRN('error', { message: e.message || 'Unknown error', requestId: (JSON.parse(event.data)).requestId });
-        }
-      });
-
-      document.addEventListener('message', function(event) {
-        window.dispatchEvent(new MessageEvent('message', { data: event.data }));
-      });
-    </script>
+        // Check if already signed in on load
+        setTimeout(() => {{
+          try {{
+            updateUI(puter.auth.isSignedIn());
+          }} catch(e) {{
+            updateUI(false);
+          }}
+        }}, 1000);
+      </script>
     </body>
     </html>
     """
