@@ -77,7 +77,7 @@ export function PuterProvider({ children }: { children: React.ReactNode }) {
       // Opens secure Chrome Custom Tabs / Safari View Controller
       // where Google Sign-In is 100% allowed and supported!
       await WebBrowser.openAuthSessionAsync(
-        `https://cat-backend-bdyo.onrender.com/puter-bridge?redirect=${encodeURIComponent(redirectUrl)}`,
+        `https://cdn.jsdelivr.net/gh/brownhat16/cat-prep-app@main/frontend/assets/puter-bridge.html?redirect=${encodeURIComponent(redirectUrl)}`,
         redirectUrl
       );
     } catch (error) {
