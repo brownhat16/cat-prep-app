@@ -10,6 +10,7 @@ type ArenaQuestion = {
   text: string;
   hint: string;
   options: string[];
+  answer: string;
   source: 'gemini' | 'puter' | 'local';
 };
 
@@ -20,6 +21,7 @@ const INITIAL_QUESTION: ArenaQuestion = {
   text: 'Five people (A, B, C, D, E) stand in a line. B is not at either end. C is immediately between A and E. D is immediately between B and C. If A is at the first position, what is the order?',
   hint: "If A is 1st, then C must be 2nd and E must be 3rd to satisfy 'C is between A and E'. Then D is 4th and B is 5th.",
   options: ['A, C, E, D, B', 'A, E, C, B, D', 'A, C, D, B, E', 'A, B, C, D, E'],
+  answer: 'A, C, E, D, B',
   source: 'local',
 };
 
@@ -28,36 +30,42 @@ const LOCAL_FALLBACK_QUESTIONS: ArenaQuestion[] = [
     text: 'Five cars (Red, Blue, Green, Yellow, Black) are parked in a row. Blue is not at either end. Green is immediately between Red and Black. Yellow is immediately between Blue and Green. If Red is parked first, what is the order?',
     hint: 'Place Red first, satisfy the adjacency constraints, then fit Blue away from both ends.',
     options: ['Red, Green, Black, Yellow, Blue', 'Red, Black, Green, Blue, Yellow', 'Red, Green, Yellow, Blue, Black', 'Red, Blue, Green, Yellow, Black'],
+    answer: 'Red, Blue, Green, Yellow, Black',
     source: 'local',
   },
   {
     text: 'Six analysts sit around a circular table. Maya sits opposite Kabir. Nia sits immediately to the left of Maya. Rohan is not adjacent to Kabir. Which arrangement is possible?',
     hint: 'Lock Maya and Kabir first, then place Nia to Maya’s left before checking where Rohan can sit.',
     options: ['Maya, Nia, Rohan, Kabir, Tara, Om', 'Maya, Tara, Nia, Kabir, Om, Rohan', 'Maya, Nia, Tara, Kabir, Rohan, Om', 'Maya, Om, Nia, Kabir, Tara, Rohan'],
+    answer: 'Maya, Nia, Tara, Kabir, Rohan, Om',
     source: 'local',
   },
   {
     text: 'A set has three statements, exactly one of which is true. If P says "Q is false", Q says "R is false", and R says "P and Q are both false", who is truthful?',
     hint: 'Assume each speaker is the only truthful one and discard cases that create contradictions.',
     options: ['P only', 'Q only', 'R only', 'None of them'],
+    answer: 'P only',
     source: 'local',
   },
   {
     text: 'Three pipes fill a tank in 6, 10, and 15 hours. If all three are opened together, how long will the tank take to fill?',
     hint: 'Add their per-hour work rates, then invert the combined rate.',
     options: ['3 hours', '4 hours', '5 hours', '6 hours'],
+    answer: '3 hours',
     source: 'local',
   },
   {
     text: 'A trader marks a product 25% above cost price and gives a 10% discount. What is the profit percentage?',
     hint: 'Apply the discount on the marked price first, then compare the final selling price to cost price.',
     options: ['10%', '12.5%', '15%', '20%'],
+    answer: '12.5%',
     source: 'local',
   },
   {
     text: 'In a class, the ratio of boys to girls is 7:5. If 24 more girls join, the ratio becomes 7:8. How many boys are there initially?',
     hint: 'Let the common multiplier be x and write both ratio equations before solving.',
     options: ['35', '42', '49', '56'],
+    answer: '42',
     source: 'local',
   },
 ];
@@ -66,12 +74,13 @@ function normalizeBackendClone(clone: {
   question_text: string;
   options: string[];
   concept_hint: string;
-  answer?: string;
+  answer: string;
 }): ArenaQuestion {
   return {
     text: clone.question_text,
     hint: clone.concept_hint,
     options: clone.options,
+    answer: clone.answer,
     source: 'gemini',
   };
 }
@@ -143,6 +152,8 @@ export default function QuickSolve() {
   const [loadingClone, setLoadingClone] = useState(false);
   const [aiSource, setAiSource] = useState<'gemini' | 'puter' | null>(null);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [submitted, setSubmitted] = useState(false);
+  const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<ArenaQuestion>(INITIAL_QUESTION);
   const [nextQuestion, setNextQuestion] = useState<ArenaQuestion | null>(null);
   const isMountedRef = useRef(true);
@@ -152,7 +163,18 @@ export default function QuickSolve() {
     setCurrentQuestion(question);
     setAiSource(question.source === 'local' ? null : question.source);
     setSelectedOption(null);
+    setSubmitted(false);
+    setIsCorrect(null);
     setShowHint(false);
+  };
+
+  const handleSubmitAnswer = () => {
+    if (selectedOption === null || submitted) {
+      return;
+    }
+    const chosen = currentQuestion.options[selectedOption];
+    setSubmitted(true);
+    setIsCorrect(chosen === currentQuestion.answer);
   };
 
   const prefetchNextQuestion = async () => {
@@ -275,16 +297,56 @@ export default function QuickSolve() {
             {currentQuestion.options.map((opt, i) => (
               <Pressable
                 key={i}
-                onPress={() => setSelectedOption(i)}
-                className={`w-full p-4 rounded-xl border flex-row items-center gap-3 active:bg-surface-variant ${selectedOption === i ? 'border-primary bg-primary/10' : 'border-outline-variant/50'}`}
+                onPress={() => {
+                  if (submitted) {
+                    return;
+                  }
+                  setSelectedOption(i);
+                }}
+                className={`w-full p-4 rounded-xl border flex-row items-center gap-3 active:bg-surface-variant ${
+                  submitted && opt === currentQuestion.answer
+                    ? 'border-status-answered bg-status-answered/10'
+                    : submitted && selectedOption === i && opt !== currentQuestion.answer
+                      ? 'border-error bg-error/10'
+                      : selectedOption === i
+                        ? 'border-primary bg-primary/10'
+                        : 'border-outline-variant/50'
+                }`}
               >
-                <View className={`w-6 h-6 rounded-full border items-center justify-center ${selectedOption === i ? 'border-primary bg-primary/10' : 'border-outline-variant'}`}>
-                  <Text className={`text-xs font-medium ${selectedOption === i ? 'text-primary' : 'text-on-surface-variant'}`}>{String.fromCharCode(65 + i)}</Text>
+                <View className={`w-6 h-6 rounded-full border items-center justify-center ${
+                  submitted && opt === currentQuestion.answer
+                    ? 'border-status-answered bg-status-answered/10'
+                    : submitted && selectedOption === i && opt !== currentQuestion.answer
+                      ? 'border-error bg-error/10'
+                      : selectedOption === i
+                        ? 'border-primary bg-primary/10'
+                        : 'border-outline-variant'
+                }`}>
+                  <Text className={`text-xs font-medium ${
+                    submitted && opt === currentQuestion.answer
+                      ? 'text-status-answered'
+                      : submitted && selectedOption === i && opt !== currentQuestion.answer
+                        ? 'text-error'
+                        : selectedOption === i
+                          ? 'text-primary'
+                          : 'text-on-surface-variant'
+                  }`}>{String.fromCharCode(65 + i)}</Text>
                 </View>
                 <Text className="flex-1 text-base text-on-surface">{opt}</Text>
               </Pressable>
             ))}
           </View>
+
+          {submitted && (
+            <View className={`p-4 rounded-xl border mb-4 ${isCorrect ? 'bg-status-answered/10 border-status-answered/30' : 'bg-error/10 border-error/30'}`}>
+              <Text className={`text-sm font-semibold mb-1 ${isCorrect ? 'text-status-answered' : 'text-error'}`}>
+                {isCorrect ? 'Correct answer' : 'Incorrect answer'}
+              </Text>
+              <Text className="text-sm text-on-surface-variant">
+                Correct option: {currentQuestion.answer}
+              </Text>
+            </View>
+          )}
 
           {showHint && (
             <View className="bg-tertiary-container/10 p-4 rounded-xl border border-tertiary/20 mb-4">
@@ -294,7 +356,22 @@ export default function QuickSolve() {
           )}
         </View>
 
-        <View className="w-full max-w-md flex-row gap-4">
+        <View className="w-full max-w-md gap-4">
+          <Pressable
+            onPress={handleSubmitAnswer}
+            disabled={selectedOption === null || submitted}
+            className={`py-4 rounded-xl items-center justify-center flex-row gap-2 ${
+              selectedOption === null || submitted
+                ? 'bg-surface-container-high border border-outline-variant/40'
+                : 'bg-primary'
+            }`}
+          >
+            <Text className={`text-base font-semibold ${selectedOption === null || submitted ? 'text-on-surface-variant' : 'text-white'}`}>
+              {submitted ? 'Answer Submitted' : 'Submit Answer'}
+            </Text>
+          </Pressable>
+
+          <View className="flex-row gap-4">
           <Pressable
             onPress={() => setShowHint(!showHint)}
             className="flex-1 py-4 rounded-xl border border-tertiary/50 bg-tertiary-container/10 active:bg-tertiary-container/20 items-center justify-center flex-row gap-2"
@@ -307,8 +384,9 @@ export default function QuickSolve() {
             className="flex-1 py-4 rounded-xl bg-gradient-to-r from-secondary-container to-primary items-center justify-center flex-row gap-2 active:opacity-80"
           >
             <Bot color="#ffffff" size={20} />
-            <Text className="text-base font-semibold text-white">Generate Clone</Text>
+            <Text className="text-base font-semibold text-white">{submitted ? 'Next Question' : 'Generate Clone'}</Text>
           </Pressable>
+          </View>
         </View>
       </View>
     </View>
