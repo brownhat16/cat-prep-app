@@ -76,6 +76,27 @@
               </div>
             </div>
           </article>
+
+          <article class="card">
+            <header class="card-header">
+              <h2>Render Keep-Alive Engine</h2>
+              <p>Prevents Render's free tier from sleeping by actively pinging the backend every 5 seconds.</p>
+            </header>
+            <div class="card-body">
+              <div class="metrics">
+                <div class="metric">
+                  <div class="metric-label" style="display: flex; align-items: center; justify-content: space-between;">
+                    <span>Engine Status</span>
+                    <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green);"></span>
+                  </div>
+                  <div class="metric-value" style="font-size: 16px; font-weight: 700; color: var(--green); margin-top: 4px;">ACTIVE & PINGING</div>
+                  <div class="metric-note" id="keepalive-pings" style="max-height: 80px; overflow-y: auto; font-family: monospace; font-size: 11px; margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; line-height: 1.5;">
+                    <div style="color: var(--soft);">Initializing ping loops...</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
         </aside>
 
         <section class="main-grid">

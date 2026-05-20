@@ -1,5 +1,5 @@
 const CONFIG = window.ADMIN_CONFIG || {
-  backendBaseUrl: "http://127.0.0.1:8000",
+  backendBaseUrl: "https://cat-backend-bdyo.onrender.com",
   pollIntervalMs: 4000,
 };
 const BACKEND_BASE_URL = String(CONFIG.backendBaseUrl || "").replace(/\/+$/, "");
@@ -212,3 +212,36 @@ elements.refreshButton.addEventListener("click", refreshAll);
 renderSelectedFiles();
 refreshAll();
 setInterval(refreshAll, CONFIG.pollIntervalMs || 4000);
+
+// Render Active Keep-Alive Engine
+const keepAliveLogs = [];
+const keepAliveElement = document.getElementById("keepalive-pings");
+
+async function pingKeepAlive() {
+  const startTime = Date.now();
+  const timeStr = new Date().toTimeString().split(' ')[0];
+  try {
+    const res = await fetch(`${BACKEND_BASE_URL}/healthz`);
+    const duration = Date.now() - startTime;
+    if (res.ok) {
+      keepAliveLogs.unshift(`<div style="color: var(--green);">${timeStr} - Ping OK (${duration}ms)</div>`);
+    } else {
+      keepAliveLogs.unshift(`<div style="color: var(--yellow);">${timeStr} - Ping Error ${res.status}</div>`);
+    }
+  } catch (err) {
+    keepAliveLogs.unshift(`<div style="color: var(--red);">${timeStr} - Connection failed</div>`);
+  }
+  
+  if (keepAliveLogs.length > 5) {
+    keepAliveLogs.pop();
+  }
+  
+  if (keepAliveElement) {
+    keepAliveElement.innerHTML = keepAliveLogs.join("");
+  }
+}
+
+// Start keep-alive pings every 5 seconds
+pingKeepAlive();
+setInterval(pingKeepAlive, 5000);
+
