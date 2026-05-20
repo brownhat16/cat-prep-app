@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { aiService } from '../../api/client';
 import { loadArenaQueue, loadSeenArenaQuestions, mergeArenaQueue, saveArenaQueue, shiftArenaQueue } from '../../lib/studyQueue';
-import { usePuter } from '../../providers/PuterProvider';
 
 type ArenaQuestion = {
   text: string;
@@ -58,7 +57,6 @@ export default function QuickSolve() {
   const [aiSource, setAiSource] = useState<'gemini' | 'puter' | null>(null);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [queuedQuestions, setQueuedQuestions] = useState<QueuedArenaQuestion[]>([]);
-  const { isConnected, chat: puterChat } = usePuter();
 
   const [question, setQuestion] = useState<ArenaQuestion>(INITIAL_QUESTION);
 
@@ -73,31 +71,29 @@ export default function QuickSolve() {
     setShowHint(false);
   };
 
-  const buildPuterCloneBatch = async (count: number): Promise<QueuedArenaQuestion[]> => {
-    const prompt = `You are an expert CAT exam setter. Generate ${count} NEW, high-quality multiple choice questions on Algebra with Medium difficulty.
-It should test logical reasoning and quantitative aptitude.
-Each question must include 4 options, the correct answer, and a concept hint.
-Return ONLY valid JSON array (no markdown, no code blocks): [{"question_text":"...","options":["A","B","C","D"],"answer":"...","concept_hint":"..."}]`;
-    const responseText = await puterChat(prompt, 'claude-sonnet-4-20250514');
-    let cleaned = responseText.trim();
-    if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
-    if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
-    if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
-    const clones = JSON.parse(cleaned.trim()) as Array<{ question_text?: string; options?: string[]; concept_hint?: string }>;
-    return clones
-      .filter((clone) => typeof clone.question_text === 'string' && Array.isArray(clone.options) && clone.options.length === 4 && typeof clone.concept_hint === 'string')
-      .map((clone) => ({
-        text: clone.question_text as string,
-        options: clone.options as string[],
-        hint: clone.concept_hint as string,
-        source: 'puter' as const,
-      }));
+  const withTimeout = async <T,>(promise: Promise<T>, timeoutMs: number): Promise<T> => {
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        promise,
+        new Promise<T>((_, reject) => {
+          timeoutHandle = setTimeout(() => reject(new Error(`Timed out after ${timeoutMs}ms`)), timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+    }
   };
 
   const loadCloneBatch = async (count: number = 10): Promise<QueuedArenaQuestion[]> => {
     const seenQuestions = await loadSeenArenaQuestions();
     try {
-      const result = await aiService.generateClones('Algebra', 'Medium', count, seenQuestions);
+      const result = await withTimeout(
+        aiService.generateClones('Algebra', 'Medium', count, seenQuestions),
+        6000,
+      );
       if (result.clones?.length > 0) {
         return result.clones.map((clone) => ({
           text: clone.question_text,
@@ -107,18 +103,7 @@ Return ONLY valid JSON array (no markdown, no code blocks): [{"question_text":".
         }));
       }
     } catch (error) {
-      console.warn('Backend clone batch failed, trying Puter fallback...', error);
-    }
-
-    if (isConnected) {
-      try {
-        const puterClones = await buildPuterCloneBatch(count);
-        if (puterClones.length > 0) {
-          return puterClones;
-        }
-      } catch (puterError) {
-        console.error('Puter batch fallback failed:', puterError);
-      }
+      console.warn('Backend clone batch failed, using local arena fallback...', error);
     }
 
     return buildLocalArenaQueue(count);
