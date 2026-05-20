@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, Pressable, Image, ActivityIndicator } from 'react-native';
+import { View, Text, Pressable, Image, ActivityIndicator, ScrollView } from 'react-native';
 import { Menu, Lightbulb, Bot } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
@@ -262,8 +262,19 @@ export default function QuickSolve() {
         </Link>
       </View>
 
-      <View className="flex-1 px-4 pt-6 justify-center items-center">
-        <View className="w-full max-w-md glass-card rounded-3xl p-6 border border-outline-variant/50 mb-8 relative overflow-hidden">
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: 16,
+          paddingTop: 24,
+          paddingBottom: 24,
+          alignItems: 'center',
+          justifyContent: 'flex-start',
+        }}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View className="w-full max-w-md glass-card rounded-3xl p-6 border border-outline-variant/50 mb-6 relative overflow-hidden">
           {loadingClone && (
             <View className="absolute inset-0 bg-surface/80 items-center justify-center z-10 rounded-3xl">
               <ActivityIndicator size="large" color="#a4c9ff" />
@@ -388,7 +399,7 @@ export default function QuickSolve() {
           </Pressable>
           </View>
         </View>
-      </View>
+      </ScrollView>
     </View>
   );
 }
