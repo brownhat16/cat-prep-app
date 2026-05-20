@@ -11,7 +11,7 @@ export default function QuickSolve() {
   const [showHint, setShowHint] = useState(false);
   const [loadingClone, setLoadingClone] = useState(false);
   const [aiSource, setAiSource] = useState<'gemini' | 'puter' | null>(null);
-  const { isSignedIn, chat: puterChat } = usePuter();
+  const { isConnected, chat: puterChat } = usePuter();
 
   // Dummy question state
   const [question, setQuestion] = useState({
@@ -37,7 +37,7 @@ export default function QuickSolve() {
       console.warn("Gemini failed, trying Puter fallback...", error);
       
       // Fallback to Puter AI if signed in
-      if (isSignedIn) {
+      if (isConnected) {
         try {
           const prompt = `You are an expert CAT exam setter. Generate a NEW, high-quality multiple choice question on Algebra with Medium difficulty.
 It should test logical reasoning and quantitative aptitude.

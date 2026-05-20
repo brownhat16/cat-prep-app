@@ -14,7 +14,7 @@ export default function Flashcards() {
   const [generating, setGenerating] = useState(false);
   const [selectedTopic, setSelectedTopic] = useState('Algebra');
   const flipAnim = useRef(new Animated.Value(0)).current;
-  const { isSignedIn, chat: puterChat } = usePuter();
+  const { isConnected, chat: puterChat } = usePuter();
 
   const topics = ['Algebra', 'Probability', 'Geometry', 'Number Systems', 'Permutations', 'Time & Work', 'Profit & Loss', 'Averages'];
 
@@ -29,7 +29,7 @@ export default function Flashcards() {
       }
     } catch (error) {
       console.warn('Backend flashcard gen failed, trying Puter...', error);
-      if (isSignedIn) {
+      if (isConnected) {
         try {
           const prompt = `Generate 5 CAT exam flashcards for "${selectedTopic}". Return ONLY JSON array: [{"front":"...","back":"...","explanation":"...","topic":"${selectedTopic}"}]`;
           const text = await puterChat(prompt, 'claude-sonnet-4-20250514');
