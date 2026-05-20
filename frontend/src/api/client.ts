@@ -23,6 +23,10 @@ export const aiService = {
   generateClone: async (topic: string, difficulty: string = "Medium") => {
     const response = await apiClient.post('/generate-clone/', { topic, difficulty });
     return response.data.clone;
+  },
+  generateClones: async (topic: string, difficulty: string = "Medium", count: number = 10) => {
+    const response = await apiClient.post('/generate-clones/', { topic, difficulty, count });
+    return response.data as { clones: Array<{ question_text: string; options: string[]; answer: string; concept_hint: string }>; source: 'gemini' | 'puter' | 'local' };
   }
 };
 

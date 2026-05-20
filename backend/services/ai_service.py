@@ -53,6 +53,27 @@ def _strip_code_fences(content: str) -> str:
     return cleaned.strip()
 
 
+def _get_puter_token() -> str:
+    token = os.environ.get("PUTER_AUTH_TOKEN")
+    if not token:
+        raise RuntimeError("Puter backend fallback is not configured. Set PUTER_AUTH_TOKEN.")
+    return token
+
+
+def _generate_with_puter(prompt: str, model: str = "claude-3-5-sonnet") -> str:
+    import openai
+
+    puter_client = openai.OpenAI(
+        api_key=_get_puter_token(),
+        base_url="https://api.puter.com/puterai/openai/v1/",
+    )
+    completion = puter_client.chat.completions.create(
+        model=model,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return _strip_code_fences(completion.choices[0].message.content or "")
+
+
 def _fallback_flashcards(topic: str, count: int):
     safe_topic = topic or "CAT Concepts"
     templates = [
@@ -88,6 +109,84 @@ def _fallback_flashcards(topic: str, count: int):
         },
     ]
     return templates[: max(1, min(count, len(templates)))]
+
+
+def _fallback_clones(topic: str, difficulty: str, count: int):
+    safe_topic = topic or "CAT"
+    safe_difficulty = difficulty or "Medium"
+    scenarios = [
+        ("students", "solve", "problems", "second"),
+        ("teams", "complete", "tasks", "third"),
+        ("workers", "finish", "units", "first"),
+        ("traders", "sell", "items", "second"),
+        ("runners", "cover", "laps", "third"),
+        ("buses", "carry", "passengers", "first"),
+        ("pipes", "fill", "tanks", "second"),
+        ("machines", "produce", "components", "third"),
+        ("analysts", "review", "cases", "first"),
+        ("shops", "earn", "orders", "second"),
+    ]
+    clones = []
+    for index in range(max(1, count)):
+        actor_plural, verb, unit, target_position = scenarios[index % len(scenarios)]
+        ratio_a = 2 + (index % 3)
+        ratio_b = 3 + (index % 4)
+        ratio_c = 5 + (index % 5)
+        total = (ratio_a + ratio_b + ratio_c) * (4 + index)
+        target_share = {
+            "first": ratio_a,
+            "second": ratio_b,
+            "third": ratio_c,
+        }[target_position]
+        part_value = total // (ratio_a + ratio_b + ratio_c)
+        answer = str(target_share * part_value)
+        clones.append(
+            {
+                "question_text": f"Three {actor_plural} {verb} {safe_topic.lower()} {unit} of {safe_difficulty.lower()} difficulty in the ratio {ratio_a}:{ratio_b}:{ratio_c}. If the total is {total}, how many {unit} does the {target_position} one handle?",
+                "options": [
+                    str(max(1, int(answer) - part_value)),
+                    str(max(1, int(answer) - 1)),
+                    answer,
+                    str(int(answer) + part_value),
+                ],
+                "answer": answer,
+                "concept_hint": "Convert the ratio into total parts, find one part, then multiply by the target share.",
+            }
+        )
+    return clones
+
+
+def _normalize_clone_item(clone, topic: str, difficulty: str):
+    if not isinstance(clone, dict):
+        return None
+    question_text = str(clone.get("question_text", "")).strip()
+    concept_hint = str(clone.get("concept_hint", "")).strip()
+    answer = str(clone.get("answer", "")).strip()
+    options = clone.get("options", [])
+    if not isinstance(options, list):
+        options = []
+    normalized_options = [str(option).strip() for option in options if str(option).strip()]
+    if len(normalized_options) != 4 or not question_text or not concept_hint or not answer:
+        return None
+    return {
+        "question_text": question_text,
+        "options": normalized_options,
+        "answer": answer,
+        "concept_hint": concept_hint,
+    }
+
+
+def _normalize_clone_batch(clones, topic: str, difficulty: str, count: int):
+    normalized = []
+    for clone in clones or []:
+        normalized_clone = _normalize_clone_item(clone, topic, difficulty)
+        if normalized_clone:
+            normalized.append(normalized_clone)
+        if len(normalized) >= max(1, count):
+            break
+    if normalized:
+        return normalized
+    return _fallback_clones(topic, difficulty, count)
 
 
 def _normalize_flashcards(cards, topic: str, count: int):
@@ -185,27 +284,9 @@ def generate_question_clone(topic: str, difficulty: str):
     try:
         response = _generate_clone()
         return json.loads(response.text)
-    except Exception as e:
-        puter_key = os.environ.get("PUTER_API_KEY")
-        if puter_key:
-            print("Gemini clone failed, falling back to Puter AI...", e)
-            import openai
-            puter_client = openai.OpenAI(api_key=puter_key, base_url="https://api.puter.com/puterai/openai/v1/")
-            completion = puter_client.chat.completions.create(
-                model="claude-3-5-sonnet",
-                messages=[{"role": "user", "content": prompt}]
-            )
-            
-            # Puter models might return markdown blocks like ```json ... ```
-            content = completion.choices[0].message.content.strip()
-            if content.startswith("```json"):
-                content = content[7:-3].strip()
-            elif content.startswith("```"):
-                content = content[3:-3].strip()
-                
-            return json.loads(content)
-        else:
-            raise e
+    except Exception:
+        content = _generate_with_puter(prompt)
+        return json.loads(content)
 
 
 def generate_flashcards(topic: str, count: int = 5):
@@ -245,25 +326,72 @@ def generate_flashcards(topic: str, count: int = 5):
         response = _generate_flashcards()
         cards = json.loads(response.text)
         return _normalize_flashcards(cards, safe_topic, safe_count)
-    except Exception as e:
-        puter_key = os.environ.get("PUTER_API_KEY")
-        if puter_key:
-            try:
-                print("Gemini flashcards failed, falling back to Puter AI...", e)
-                import openai
+    except Exception:
+        try:
+            content = _generate_with_puter(prompt)
+            cards = json.loads(content)
+            return _normalize_flashcards(cards, safe_topic, safe_count)
+        except Exception:
+            return _normalize_flashcards([], safe_topic, safe_count)
 
-                puter_client = openai.OpenAI(
-                    api_key=puter_key,
-                    base_url="https://api.puter.com/puterai/openai/v1/",
-                )
-                completion = puter_client.chat.completions.create(
-                    model="claude-3-5-sonnet",
-                    messages=[{"role": "user", "content": prompt}],
-                )
-                content = _strip_code_fences(completion.choices[0].message.content or "")
-                cards = json.loads(content)
-                return _normalize_flashcards(cards, safe_topic, safe_count)
-            except Exception as puter_error:
-                print("Puter flashcards failed, falling back to local flashcards...", puter_error)
 
-        return _normalize_flashcards([], safe_topic, safe_count)
+def generate_question_clones(topic: str, difficulty: str, count: int = 10):
+    safe_count = max(1, min(count, 10))
+    safe_topic = topic or "CAT"
+    safe_difficulty = difficulty or "Medium"
+
+    prompt = f"""
+    You are an expert CAT exam setter. Generate {safe_count} NEW, high-quality multiple choice questions on {safe_topic} with {safe_difficulty} difficulty.
+    Each question must:
+    - test CAT-style logical reasoning or quantitative aptitude
+    - include exactly 4 options
+    - include the correct answer
+    - include a short concept hint
+
+    Return ONLY valid JSON as an array:
+    [
+      {{
+        "question_text": "...",
+        "options": ["A", "B", "C", "D"],
+        "answer": "...",
+        "concept_hint": "..."
+      }}
+    ]
+    """
+
+    try:
+        client, _ = _get_clients()
+
+        @retry(
+            wait=wait_exponential(multiplier=2, min=4, max=60),
+            stop=stop_after_attempt(5),
+            retry=retry_if_exception(_is_retryable_error),
+        )
+        def _generate_clones():
+            return client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=prompt,
+                config=genai.types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                ),
+            )
+
+        response = _generate_clones()
+        clones = json.loads(response.text)
+        return {
+            "clones": _normalize_clone_batch(clones, safe_topic, safe_difficulty, safe_count),
+            "source": "gemini",
+        }
+    except Exception:
+        try:
+            content = _generate_with_puter(prompt)
+            clones = json.loads(content)
+            return {
+                "clones": _normalize_clone_batch(clones, safe_topic, safe_difficulty, safe_count),
+                "source": "puter",
+            }
+        except Exception:
+            return {
+                "clones": _fallback_clones(safe_topic, safe_difficulty, safe_count),
+                "source": "local",
+            }

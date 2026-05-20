@@ -90,6 +90,38 @@ def _build_pinecone_metadata(question: dict, filename: str) -> dict:
     return metadata
 
 
+def _get_puter_token() -> str:
+    token = os.environ.get("PUTER_AUTH_TOKEN")
+    if not token:
+        raise RuntimeError("Puter backend fallback is not configured. Set PUTER_AUTH_TOKEN.")
+    return token
+
+
+def _strip_code_fences(content: str) -> str:
+    cleaned = content.strip()
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[7:]
+    elif cleaned.startswith("```"):
+        cleaned = cleaned[3:]
+    if cleaned.endswith("```"):
+        cleaned = cleaned[:-3]
+    return cleaned.strip()
+
+
+def _generate_with_puter(prompt: str) -> str:
+    import openai
+
+    puter_client = openai.OpenAI(
+        api_key=_get_puter_token(),
+        base_url="https://api.puter.com/puterai/openai/v1/",
+    )
+    completion = puter_client.chat.completions.create(
+        model="claude-3-5-sonnet",
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return _strip_code_fences(completion.choices[0].message.content or "")
+
+
 async def _process_and_ingest_pdf_once(file_content: bytes, filename: str, upload_id: Optional[str] = None):
     client, pc = _get_clients()
     import pdfplumber
@@ -137,24 +169,9 @@ async def _process_and_ingest_pdf_once(file_content: bytes, filename: str, uploa
     try:
         response = _generate_questions()
         response_text = response.text or ""
-    except Exception as e:
-        puter_key = os.environ.get("PUTER_API_KEY")
-        if puter_key:
-            _log(f"Gemini ingest failed, falling back to Puter AI... {e}", upload_id=upload_id, level="warning")
-            import openai
-            puter_client = openai.OpenAI(api_key=puter_key, base_url="https://api.puter.com/puterai/openai/v1/")
-            completion = puter_client.chat.completions.create(
-                model="claude-3-5-sonnet",
-                messages=[{"role": "user", "content": prompt}]
-            )
-            content = completion.choices[0].message.content.strip()
-            if content.startswith("```json"):
-                content = content[7:-3].strip()
-            elif content.startswith("```"):
-                content = content[3:-3].strip()
-            response_text = content
-        else:
-            raise e
+    except Exception as exc:
+        _log(f"Gemini ingest failed, falling back to Puter auth token flow: {exc}", upload_id=upload_id, level="warning")
+        response_text = _generate_with_puter(prompt)
     
     try:
         questions = json.loads(response_text)

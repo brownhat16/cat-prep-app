@@ -14,7 +14,11 @@ from dotenv import load_dotenv
 from admin_state import add_log, create_upload, get_vector_status, list_logs, list_uploads
 from admin_ui import render_admin_html
 from services.rag_service import process_and_ingest_pdf
-from services.ai_service import generate_flashcards as build_flashcards, generate_question_clone
+from services.ai_service import (
+    generate_flashcards as build_flashcards,
+    generate_question_clone,
+    generate_question_clones,
+)
 
 load_dotenv()
 os.environ.setdefault("DATABASE_URL", "file:./dev.db")
@@ -332,6 +336,12 @@ class CloneRequest(BaseModel):
     topic: str
     difficulty: str = "Medium"
 
+
+class CloneBatchRequest(BaseModel):
+    topic: str
+    difficulty: str = "Medium"
+    count: int = 10
+
 @app.post("/generate-clone/")
 async def generate_clone(request: CloneRequest):
     try:
@@ -343,6 +353,27 @@ async def generate_clone(request: CloneRequest):
         )
         clone = _fallback_clone(request.topic, request.difficulty)
     return {"clone": clone}
+
+
+@app.post("/generate-clones/")
+async def generate_clones(request: CloneBatchRequest):
+    try:
+        result = await asyncio.to_thread(
+            generate_question_clones,
+            request.topic,
+            request.difficulty,
+            request.count,
+        )
+    except Exception as exc:
+        add_log(
+            f"Falling back to local clone batch for topic={request.topic!r}, difficulty={request.difficulty!r}: {exc}",
+            level="warning",
+        )
+        result = {
+            "clones": [_fallback_clone(request.topic, request.difficulty) for _ in range(max(1, min(request.count, 10)))],
+            "source": "local",
+        }
+    return result
 
 # --- DB Routes ---
 @app.get("/questions/")

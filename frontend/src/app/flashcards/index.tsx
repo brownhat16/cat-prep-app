@@ -4,6 +4,13 @@ import { Menu, RefreshCcw, Volume2, Hand, Sparkles } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link, useLocalSearchParams } from 'expo-router';
 import { flashcardService } from '../../api/client';
+import {
+  flushFlashcardReviews,
+  loadFlashcardQueue,
+  mergeFlashcardQueue,
+  queueFlashcardReview,
+  saveFlashcardQueue,
+} from '../../lib/studyQueue';
 import { usePuter } from '../../providers/PuterProvider';
 
 type Flashcard = {
@@ -15,8 +22,9 @@ type Flashcard = {
 };
 
 const TOPICS = ['Algebra', 'Probability', 'Geometry', 'Number Systems', 'Permutations', 'Time & Work', 'Profit & Loss', 'Averages'];
+const READY_FLASHCARD_COUNT = 10;
 
-function buildLocalFlashcards(topic: string, count: number = 5) {
+function buildLocalFlashcards(topic: string, count: number = READY_FLASHCARD_COUNT) {
   const safeTopic = topic || 'CAT Concepts';
   return [
     {
@@ -54,6 +62,41 @@ function buildLocalFlashcards(topic: string, count: number = 5) {
       back: 'Explain the concept in one line, then solve one representative question.',
       explanation: 'Active recall plus immediate application is the most reliable revision loop.',
     },
+    {
+      id: `local-${safeTopic}-6`,
+      topic: safeTopic,
+      front: `${safeTopic}: Data Check`,
+      back: 'List the values given, the variable asked, and the hidden constraint before solving.',
+      explanation: 'This reduces avoidable setup errors on CAT questions.',
+    },
+    {
+      id: `local-${safeTopic}-7`,
+      topic: safeTopic,
+      front: `${safeTopic}: Estimation Move`,
+      back: 'Estimate the scale of the answer before exact calculation.',
+      explanation: 'Estimation helps reject impossible options early.',
+    },
+    {
+      id: `local-${safeTopic}-8`,
+      topic: safeTopic,
+      front: `${safeTopic}: Reverse Solve`,
+      back: 'When options are far apart, plug answer choices back into the condition.',
+      explanation: 'Option-driven solving is often faster than direct derivation.',
+    },
+    {
+      id: `local-${safeTopic}-9`,
+      topic: safeTopic,
+      front: `${safeTopic}: Pattern Trigger`,
+      back: 'Check whether symmetry, parity, ratio, or sequencing simplifies the problem.',
+      explanation: 'Many CAT shortcuts come from spotting recurring structures.',
+    },
+    {
+      id: `local-${safeTopic}-10`,
+      topic: safeTopic,
+      front: `${safeTopic}: Final Review`,
+      back: 'Summarize the one mistake you are most likely to make on this topic.',
+      explanation: 'Personal error awareness improves retention and exam accuracy.',
+    },
   ].slice(0, Math.max(1, count));
 }
 
@@ -68,6 +111,66 @@ export default function Flashcards() {
   const flipAnim = useRef(new Animated.Value(0)).current;
   const { isConnected, chat: puterChat } = usePuter();
 
+  const ensureReadyFlashcards = (cards: Flashcard[], topic: string) => {
+    if (cards.length >= READY_FLASHCARD_COUNT) {
+      return cards.slice(0, READY_FLASHCARD_COUNT);
+    }
+    const usedIds = new Set(cards.map((card) => card.id));
+    const extras = buildLocalFlashcards(topic, READY_FLASHCARD_COUNT)
+      .filter((card) => !usedIds.has(card.id))
+      .slice(0, READY_FLASHCARD_COUNT - cards.length);
+    return [...cards, ...extras];
+  };
+
+  const syncQueuedReviews = React.useCallback(async () => {
+    await flushFlashcardReviews((review) =>
+      flashcardService.reviewFlashcard(review.flashcardId, review.difficulty),
+    );
+  }, []);
+
+  const fetchFreshFlashcards = React.useCallback(async (topic: string): Promise<Flashcard[]> => {
+    try {
+      const data = await flashcardService.generateFlashcards(topic, READY_FLASHCARD_COUNT);
+      if (data?.flashcards?.length > 0) {
+        return ensureReadyFlashcards(data.flashcards, topic);
+      }
+    } catch (error) {
+      console.warn('Backend flashcard gen failed, trying Puter...', error);
+    }
+
+    if (isConnected) {
+      try {
+        const prompt = `Generate ${READY_FLASHCARD_COUNT} CAT exam flashcards for "${topic}". Return ONLY JSON array: [{"front":"...","back":"...","explanation":"...","topic":"${topic}"}]`;
+        const text = await puterChat(prompt, 'claude-sonnet-4-20250514');
+        let cleaned = text.trim();
+        if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
+        if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
+        if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
+        const parsedCards = JSON.parse(cleaned.trim()) as Array<Partial<Flashcard>>;
+        const cards: Flashcard[] = parsedCards
+          .filter((card) => typeof card.front === 'string' && typeof card.back === 'string' && typeof card.explanation === 'string')
+          .map((card, i) => ({
+            id: `puter-${Date.now()}-${i}`,
+            topic: card.topic || topic,
+            front: card.front as string,
+            back: card.back as string,
+            explanation: card.explanation as string,
+          }));
+        return ensureReadyFlashcards(cards, topic);
+      } catch (puterError) {
+        console.error('Puter flashcard gen failed:', puterError);
+      }
+    }
+
+    return buildLocalFlashcards(topic, READY_FLASHCARD_COUNT);
+  }, [isConnected, puterChat]);
+
+  const topUpFlashcards = React.useCallback(async (topic: string) => {
+    const fresh = await fetchFreshFlashcards(topic);
+    const merged = await mergeFlashcardQueue(topic, fresh, READY_FLASHCARD_COUNT);
+    setFlashcards(merged);
+  }, [fetchFreshFlashcards]);
+
   React.useEffect(() => {
     if (typeof params.topic === 'string' && TOPICS.includes(params.topic)) {
       setSelectedTopic(params.topic);
@@ -77,70 +180,42 @@ export default function Flashcards() {
   const handleGenerateFlashcards = async () => {
     setGenerating(true);
     try {
-      const data = await flashcardService.generateFlashcards(selectedTopic, 5);
-      if (data?.flashcards?.length > 0) {
-        setFlashcards(data.flashcards);
-        setCurrentIndex(0);
-        if (flipped) flipCard();
-      } else {
-        setFlashcards(buildLocalFlashcards(selectedTopic, 5));
-        setCurrentIndex(0);
-        if (flipped) flipCard();
-      }
-    } catch (error) {
-      console.warn('Backend flashcard gen failed, trying Puter...', error);
-      if (isConnected) {
-        try {
-          const prompt = `Generate 5 CAT exam flashcards for "${selectedTopic}". Return ONLY JSON array: [{"front":"...","back":"...","explanation":"...","topic":"${selectedTopic}"}]`;
-          const text = await puterChat(prompt, 'claude-sonnet-4-20250514');
-          let cleaned = text.trim();
-          if (cleaned.startsWith('```json')) cleaned = cleaned.slice(7);
-          if (cleaned.startsWith('```')) cleaned = cleaned.slice(3);
-          if (cleaned.endsWith('```')) cleaned = cleaned.slice(0, -3);
-          const parsedCards = JSON.parse(cleaned.trim()) as Array<Partial<Flashcard>>;
-          const cards: Flashcard[] = parsedCards
-            .filter((card) => typeof card.front === 'string' && typeof card.back === 'string' && typeof card.explanation === 'string')
-            .map((card, i) => ({
-              id: `puter-${Date.now()}-${i}`,
-              topic: card.topic || selectedTopic,
-              front: card.front as string,
-              back: card.back as string,
-              explanation: card.explanation as string,
-            }));
-          setFlashcards(cards.length > 0 ? cards : buildLocalFlashcards(selectedTopic, 5));
-          setCurrentIndex(0);
-          if (flipped) flipCard();
-        } catch (pe) {
-          console.error('Puter flashcard gen failed:', pe);
-          setFlashcards(buildLocalFlashcards(selectedTopic, 5));
-          setCurrentIndex(0);
-          if (flipped) flipCard();
-        }
-      } else {
-        setFlashcards(buildLocalFlashcards(selectedTopic, 5));
-        setCurrentIndex(0);
-        if (flipped) flipCard();
-      }
+      const cards = await fetchFreshFlashcards(selectedTopic);
+      await saveFlashcardQueue(selectedTopic, cards);
+      setFlashcards(cards);
+      setCurrentIndex(0);
+      if (flipped) flipCard();
     } finally {
       setGenerating(false);
     }
   };
 
   React.useEffect(() => {
-    const loadFlashcards = async () => {
-      try {
-        const data = await flashcardService.getFlashcards();
-        if (data && data.length > 0) {
-          setFlashcards(data);
-          return;
-        }
-      } catch (error) {
-        console.error("Failed to load flashcards:", error);
+    let active = true;
+
+    const hydrateFlashcards = async () => {
+      const cached = await loadFlashcardQueue(selectedTopic);
+      if (active && cached.length > 0) {
+        setFlashcards(cached);
       }
-      setFlashcards(buildLocalFlashcards(selectedTopic, 5));
+
+      const fresh = await fetchFreshFlashcards(selectedTopic);
+      await saveFlashcardQueue(selectedTopic, fresh);
+      if (active) {
+        setFlashcards(fresh);
+        setCurrentIndex(0);
+      }
     };
-    loadFlashcards();
-  }, [selectedTopic]);
+
+    void hydrateFlashcards();
+    return () => {
+      active = false;
+    };
+  }, [fetchFreshFlashcards, selectedTopic]);
+
+  React.useEffect(() => {
+    void syncQueuedReviews();
+  }, [syncQueuedReviews]);
 
   const flipCard = () => {
     Animated.spring(flipAnim, {
@@ -163,15 +238,19 @@ export default function Flashcards() {
 
   const handleReview = async (difficulty: "Hard" | "Good" | "Easy") => {
     if (flashcards.length === 0) return;
-    try {
-      await flashcardService.reviewFlashcard(flashcards[currentIndex].id, difficulty);
-    } catch (e) {
-      console.warn('Review sync failed, advancing locally:', e);
-    }
+    const reviewedCard = flashcards[currentIndex];
+    const remainingCards = flashcards.filter((_, index) => index !== currentIndex);
+
     if (flipped) flipCard();
-    setTimeout(() => {
-      setCurrentIndex((prev) => (prev + 1) % flashcards.length);
-    }, 300);
+    setFlashcards(remainingCards);
+    setCurrentIndex(0);
+    await saveFlashcardQueue(selectedTopic, remainingCards);
+    await queueFlashcardReview({ flashcardId: reviewedCard.id, difficulty });
+    void syncQueuedReviews();
+
+    if (remainingCards.length < 4) {
+      void topUpFlashcards(selectedTopic);
+    }
   };
 
   const currentCard = flashcards[currentIndex];
