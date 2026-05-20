@@ -12,6 +12,7 @@ import {
   saveFlashcardQueue,
 } from '../../lib/studyQueue';
 import { usePuter } from '../../providers/PuterProvider';
+import { recordFlashcardReview } from '../../lib/appStats';
 
 type Flashcard = {
   id: string;
@@ -246,6 +247,7 @@ export default function Flashcards() {
     setCurrentIndex(0);
     await saveFlashcardQueue(selectedTopic, remainingCards);
     await queueFlashcardReview({ flashcardId: reviewedCard.id, difficulty });
+    await recordFlashcardReview({ topic: reviewedCard.topic || selectedTopic, difficulty });
     void syncQueuedReviews();
 
     if (remainingCards.length < 4) {

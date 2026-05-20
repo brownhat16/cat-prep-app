@@ -5,6 +5,7 @@ import { Menu, Lightbulb, Bot } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { aiService } from '../../api/client';
+import { recordArenaResult } from '../../lib/appStats';
 
 type ArenaQuestion = {
   text: string;
@@ -156,8 +157,16 @@ export default function QuickSolve() {
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<ArenaQuestion>(INITIAL_QUESTION);
   const [nextQuestion, setNextQuestion] = useState<ArenaQuestion | null>(null);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const isMountedRef = useRef(true);
   const isPrefetchingRef = useRef(false);
+  const questionStartedAtRef = useRef(Date.now());
+
+  const formatTimer = (totalSeconds: number) => {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
 
   const applyQuestion = (question: ArenaQuestion) => {
     setCurrentQuestion(question);
@@ -166,6 +175,8 @@ export default function QuickSolve() {
     setSubmitted(false);
     setIsCorrect(null);
     setShowHint(false);
+    questionStartedAtRef.current = Date.now();
+    setElapsedSeconds(0);
   };
 
   const handleSubmitAnswer = () => {
@@ -173,8 +184,13 @@ export default function QuickSolve() {
       return;
     }
     const chosen = currentQuestion.options[selectedOption];
+    const correct = chosen === currentQuestion.answer;
     setSubmitted(true);
-    setIsCorrect(chosen === currentQuestion.answer);
+    setIsCorrect(correct);
+    void recordArenaResult({
+      correct,
+      durationSeconds: Math.max(1, Math.floor((Date.now() - questionStartedAtRef.current) / 1000)),
+    });
   };
 
   const prefetchNextQuestion = async () => {
@@ -212,6 +228,13 @@ export default function QuickSolve() {
     return () => {
       isMountedRef.current = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setElapsedSeconds(Math.max(0, Math.floor((Date.now() - questionStartedAtRef.current) / 1000)));
+    }, 1000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleGenerateClone = async () => {
@@ -296,7 +319,7 @@ export default function QuickSolve() {
                   {nextQuestion ? 'NEXT READY' : 'PREFETCHING'}
                 </Text>
               </View>
-              <Text className="text-sm font-semibold text-secondary">02:18</Text>
+              <Text className="text-sm font-semibold text-secondary">{formatTimer(elapsedSeconds)}</Text>
             </View>
           </View>
 

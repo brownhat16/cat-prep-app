@@ -3,60 +3,26 @@ import { View, Text, ScrollView, Pressable, Image } from 'react-native';
 import { Menu, TriangleAlert, ClipboardList, Flame, Target } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LineChart, BarChart } from 'react-native-gifted-charts';
-import { Link } from 'expo-router';
-import { analyticsService } from '../../api/client';
-
-type TrendPoint = {
-  value: number;
-  label: string;
-};
-
-type SectionPoint = TrendPoint & {
-  frontColor?: string;
-};
-
-type AnalyticsData = {
-  totalTests: number;
-  currentStreak: number;
-  globalAccuracy: number;
-  netScoreTrend: TrendPoint[];
-  sectionalAccuracy: SectionPoint[];
-  criticalAlert: string;
-};
-
-const FALLBACK_ANALYTICS: AnalyticsData = {
-  totalTests: 14,
-  currentStreak: 12,
-  globalAccuracy: 84,
-  netScoreTrend: [
-    { value: 65, label: 'M1' }, { value: 72, label: 'M2' }, { value: 68, label: 'M3' }, { value: 85, label: 'M4' }, { value: 82, label: 'M5' }, { value: 95, label: 'M6' }, { value: 105, label: 'M7' }
-  ],
-  sectionalAccuracy: [
-    { value: 75, label: 'Quants', frontColor: '#6f00be' }, { value: 88, label: 'DILR', frontColor: '#a4c9ff' }, { value: 92, label: 'VARC', frontColor: '#ff7e2d' }
-  ],
-  criticalAlert: 'Average time on Quantitative Aptitude exceeds 150 seconds. AI recommends reviewing time management strategies for Algebra modules.'
-};
+import { Link, useFocusEffect } from 'expo-router';
+import { DashboardAnalytics, loadDashboardAnalytics } from '../../lib/appStats';
 
 export default function AnalyticsDashboard() {
   const insets = useSafeAreaInsets();
-  const [analytics, setAnalytics] = React.useState<AnalyticsData | null>(null);
+  const [analytics, setAnalytics] = React.useState<DashboardAnalytics | null>(null);
   const [insightMessage, setInsightMessage] = React.useState<string | null>(null);
 
   const fetchAnalytics = React.useCallback(async () => {
-    try {
-      const data = await analyticsService.getAnalytics() as AnalyticsData;
-      setAnalytics(data);
-    } catch (e) {
-      console.error("Failed to load analytics", e);
-      setAnalytics(FALLBACK_ANALYTICS);
-    }
+    const data = await loadDashboardAnalytics();
+    setAnalytics(data);
   }, []);
 
-  React.useEffect(() => {
-    fetchAnalytics();
-  }, [fetchAnalytics]);
+  useFocusEffect(
+    React.useCallback(() => {
+      void fetchAnalytics();
+    }, [fetchAnalytics]),
+  );
 
-  const lineData = analytics?.netScoreTrend || [];
+  const lineData = analytics?.netScoreTrend.length ? analytics.netScoreTrend : [{ value: 0, label: 'Start' }];
   const barData = analytics?.sectionalAccuracy || [];
 
   const showTrendInsight = () => {
@@ -139,7 +105,7 @@ export default function AnalyticsDashboard() {
               <ClipboardList color="#a4c9ff" size={16} opacity={0.7} />
             </View>
             <Text className="text-3xl font-bold text-on-surface mb-1">{analytics?.totalTests || 0}</Text>
-            <Text className="text-sm text-primary">+2 this week</Text>
+            <Text className="text-sm text-primary">Live sync from your completed mocks</Text>
           </View>
 
           <View className="glass-card rounded-xl p-4">
@@ -151,7 +117,7 @@ export default function AnalyticsDashboard() {
               <Text className="text-3xl font-bold text-on-surface">{analytics?.currentStreak || 0}</Text>
               <Text className="text-lg font-semibold text-on-surface-variant">Days</Text>
             </View>
-            <Text className="text-sm text-secondary">Top 15% of aspirants</Text>
+            <Text className="text-sm text-secondary">Updates from daily app activity</Text>
           </View>
 
           <View className="glass-card rounded-xl p-4">
@@ -214,6 +180,32 @@ export default function AnalyticsDashboard() {
               yAxisLabelWidth={30}
               maxValue={100}
             />
+          </View>
+        </View>
+
+        <View className="glass-card rounded-xl p-4">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-lg font-semibold text-on-surface">Recent Activity</Text>
+            <Text className="text-[10px] font-medium tracking-widest text-primary">LIVE</Text>
+          </View>
+          <View className="gap-3">
+            {(analytics?.recentActivity.length ? analytics.recentActivity : [{
+              id: 'empty',
+              title: 'No tracked activity yet',
+              metric: 'Start Arena, Flashcards, or a Mock to populate analytics.',
+              createdAt: '',
+              durationLabel: undefined,
+            }]).map((activity) => (
+              <View key={activity.id} className="border border-outline-variant/30 rounded-lg p-3 bg-surface-container-low/50">
+                <View className="flex-row items-center justify-between mb-1">
+                  <Text className="text-sm font-semibold text-on-surface">{activity.title}</Text>
+                  {activity.durationLabel ? (
+                    <Text className="text-xs text-on-surface-variant">{activity.durationLabel}</Text>
+                  ) : null}
+                </View>
+                <Text className="text-sm text-on-surface-variant">{activity.metric}</Text>
+              </View>
+            ))}
           </View>
         </View>
       </ScrollView>

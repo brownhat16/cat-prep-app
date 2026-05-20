@@ -1,13 +1,26 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable, Image, SafeAreaView } from 'react-native';
-import { Link } from 'expo-router';
+import { Link, useFocusEffect } from 'expo-router';
 import { Menu, Flame, Lightbulb, ClipboardList, Swords, Library, BarChart2, Timer, ArrowRight, TrendingUp, Zap, LogOut } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { usePuter } from '../providers/PuterProvider';
+import { DashboardAnalytics, loadDashboardAnalytics } from '../lib/appStats';
 
 export default function Home() {
   const insets = useSafeAreaInsets();
   const { isConnected, signIn, signOut } = usePuter();
+  const [dashboard, setDashboard] = React.useState<DashboardAnalytics | null>(null);
+
+  const refreshDashboard = React.useCallback(async () => {
+    const data = await loadDashboardAnalytics();
+    setDashboard(data);
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      void refreshDashboard();
+    }, [refreshDashboard]),
+  );
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
@@ -36,12 +49,13 @@ export default function Home() {
           <Text className="font-semibold text-2xl text-on-surface mb-2">Welcome back, Aspirant</Text>
           <View className="flex-row items-center mb-6 gap-2">
             <Flame color="#ff7e2d" size={16} fill="#ff7e2d" />
-            <Text className="text-sm text-on-surface-variant">12 Day Streak</Text>
+            <Text className="text-sm text-on-surface-variant">{dashboard?.currentStreak || 0} Day Streak</Text>
           </View>
 
           <View className="bg-surface-container-low/50 p-4 rounded-lg border border-outline-variant/50">
             <Text className="text-xs font-medium text-primary tracking-widest mb-1">CURRENT FOCUS</Text>
-            <Text className="text-lg font-semibold text-on-surface mb-4">Data Interpretation: Radar Charts</Text>
+            <Text className="text-lg font-semibold text-on-surface mb-2">{dashboard?.currentFocus || 'Start your first practice session'}</Text>
+            <Text className="text-sm text-on-surface-variant mb-4">{dashboard?.recommendedPath || 'Use Arena, Flashcards, or Mocks to generate live analytics.'}</Text>
             <Link href="./quick-solve" asChild>
               <Pressable className="bg-primary-container py-2 px-6 rounded-lg items-center active:opacity-80">
                 <Text className="text-on-primary-container font-semibold">Continue Learning</Text>
@@ -61,8 +75,8 @@ export default function Home() {
               <TrendingUp color="#ddb7ff" size={24} />
             </View>
             <View className="flex-1">
-              <Text className="text-lg font-semibold text-on-surface mb-1">Focus: Algebra & Number Systems</Text>
-              <Text className="text-sm text-on-surface-variant mb-3">Your recent mock showed a 15% dip in quadratic equations accuracy. We've curated 10 high-yield questions for you.</Text>
+              <Text className="text-lg font-semibold text-on-surface mb-1">{dashboard?.currentFocus || 'Live recommendations will appear here'}</Text>
+              <Text className="text-sm text-on-surface-variant mb-3">{dashboard?.recommendedPath || 'Complete real activities in the app to generate recommendations.'}</Text>
               <Link href={{ pathname: '/flashcards', params: { topic: 'Algebra' } }} asChild>
                 <Pressable className="flex-row items-center gap-1">
                   <Text className="text-primary text-sm font-semibold">Start Module</Text>
@@ -118,13 +132,13 @@ export default function Home() {
 
         {/* Quick Actions Grid */}
         <View className="flex-row flex-wrap justify-between gap-y-4 mb-6">
-          <Link href="/mock-exam" asChild>
+          <Link href="./mock-exam" asChild>
             <Pressable className="w-[48%] glass-card rounded-xl p-4 items-center active:opacity-80">
               <View className="w-12 h-12 bg-primary/10 rounded-full items-center justify-center mb-3">
                 <ClipboardList color="#a4c9ff" size={24} />
               </View>
               <Text className="text-lg font-semibold text-on-surface mb-1">Mocks</Text>
-              <Text className="text-[10px] tracking-widest font-medium text-on-surface-variant opacity-80">NEXT: SUNDAY</Text>
+              <Text className="text-[10px] tracking-widest font-medium text-on-surface-variant opacity-80">{dashboard?.totalTests || 0} TAKEN</Text>
             </Pressable>
           </Link>
           
@@ -134,7 +148,7 @@ export default function Home() {
                 <Swords color="#ff7e2d" size={24} />
               </View>
               <Text className="text-lg font-semibold text-on-surface mb-1">Arena</Text>
-              <Text className="text-[10px] tracking-widest font-medium text-error opacity-80">DAILY LIVE</Text>
+              <Text className="text-[10px] tracking-widest font-medium text-error opacity-80">{dashboard?.arenaAttempts || 0} ATTEMPTS</Text>
             </Pressable>
           </Link>
 
@@ -144,7 +158,7 @@ export default function Home() {
                 <Library color="#ddb7ff" size={24} />
               </View>
               <Text className="text-lg font-semibold text-on-surface mb-1">Library</Text>
-              <Text className="text-[10px] tracking-widest font-medium text-on-surface-variant opacity-80">50 DUE TODAY</Text>
+              <Text className="text-[10px] tracking-widest font-medium text-on-surface-variant opacity-80">{dashboard?.flashcardReviews || 0} REVIEWED</Text>
             </Pressable>
           </Link>
 
@@ -154,7 +168,7 @@ export default function Home() {
                 <BarChart2 color="#d4e3ff" size={24} />
               </View>
               <Text className="text-lg font-semibold text-on-surface mb-1">Stats</Text>
-              <Text className="text-[10px] tracking-widest font-medium text-on-surface-variant opacity-80">VIEW INSIGHTS</Text>
+              <Text className="text-[10px] tracking-widest font-medium text-on-surface-variant opacity-80">{dashboard?.globalAccuracy || 0}% ACCURACY</Text>
             </Pressable>
           </Link>
         </View>
@@ -170,29 +184,28 @@ export default function Home() {
             </Link>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} className="pb-4" contentContainerStyle={{ gap: 16 }}>
-            <View className="w-[280px] glass-card rounded-xl p-4 flex-col min-h-[100px]">
-              <View className="flex-row justify-between mb-2">
-                <Text className="text-[10px] font-medium tracking-widest text-on-surface-variant">MOCK TEST #12</Text>
-                <Text className="text-sm text-tertiary-fixed font-semibold">98.5 %ile</Text>
-              </View>
-              <View className="mt-auto">
-                <View className="w-full bg-surface-container-highest rounded-full h-1.5 mb-1 overflow-hidden">
-                  <View className="bg-primary h-1.5" style={{ width: '85%' }} />
+            {(dashboard?.recentActivity.length ? dashboard.recentActivity : [{
+              id: 'empty-activity',
+              title: 'No recent activity yet',
+              metric: 'Start using Arena, Flashcards, or Mocks to populate this feed.',
+              createdAt: '',
+              durationLabel: undefined,
+            }]).map((activity) => (
+              <View key={activity.id} className="w-[280px] glass-card rounded-xl p-4 flex-col min-h-[100px]">
+                <View className="flex-row justify-between mb-2">
+                  <Text className="text-[10px] font-medium tracking-widest text-on-surface-variant">{activity.title.toUpperCase()}</Text>
+                  <Text className="text-sm text-tertiary-fixed font-semibold">{activity.metric}</Text>
                 </View>
-                <Text className="text-[10px] font-medium tracking-widest text-on-surface-variant">SCORE: 112/198</Text>
+                {activity.durationLabel ? (
+                  <View className="mt-auto flex-row items-center gap-2">
+                    <Timer color="#c1c7d3" size={14} />
+                    <Text className="text-sm text-on-surface-variant">{activity.durationLabel}</Text>
+                  </View>
+                ) : (
+                  <Text className="text-sm text-on-surface-variant mt-auto">{activity.metric}</Text>
+                )}
               </View>
-            </View>
-
-            <View className="w-[280px] glass-card rounded-xl p-4 flex-col min-h-[100px]">
-              <View className="flex-row justify-between mb-2">
-                <Text className="text-[10px] font-medium tracking-widest text-on-surface-variant">PUZZLE ARENA</Text>
-                <Text className="text-sm text-secondary font-semibold">Won</Text>
-              </View>
-              <View className="mt-auto flex-row items-center gap-2">
-                <Timer color="#c1c7d3" size={14} />
-                <Text className="text-sm text-on-surface-variant">02:14</Text>
-              </View>
-            </View>
+            ))}
           </ScrollView>
         </View>
       </ScrollView>
@@ -205,7 +218,7 @@ export default function Home() {
             <Text className="text-[10px] font-medium tracking-widest text-on-surface-variant mt-1">Arena</Text>
           </Pressable>
         </Link>
-        <Link href="/mock-exam" asChild>
+        <Link href="./mock-exam" asChild>
           <Pressable className="items-center opacity-70">
             <ClipboardList color="#c1c7d3" size={24} />
             <Text className="text-[10px] font-medium tracking-widest text-on-surface-variant mt-1">Mocks</Text>
