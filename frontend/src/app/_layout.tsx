@@ -1,7 +1,6 @@
 import { Stack } from 'expo-router';
-import { useColorScheme } from 'nativewind';
-import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { PuterProvider } from '../providers/PuterProvider';
 import "../global.css";
 
 export default function Layout() {
@@ -10,7 +9,9 @@ export default function Layout() {
 
   return (
     <SafeAreaProvider>
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0f131d' } }} />
+      <PuterProvider>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#0f131d' } }} />
+      </PuterProvider>
     </SafeAreaProvider>
   );
 }

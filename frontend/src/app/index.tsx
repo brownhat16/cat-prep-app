@@ -1,11 +1,12 @@
 import React from 'react';
 import { View, Text, ScrollView, Pressable, Image, SafeAreaView } from 'react-native';
 import { Link } from 'expo-router';
-import { Menu, Flame, Lightbulb, ClipboardList, Swords, Library, BarChart2, Timer, ArrowRight, TrendingUp } from 'lucide-react-native';
+import { Menu, Flame, Lightbulb, ClipboardList, Swords, Library, BarChart2, Timer, ArrowRight, TrendingUp, Zap, LogOut } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
+import { usePuter } from '../providers/PuterProvider';
 export default function Home() {
   const insets = useSafeAreaInsets();
+  const { isSignedIn, username, signIn, signOut } = usePuter();
 
   return (
     <View className="flex-1 bg-background" style={{ paddingTop: insets.top }}>
@@ -61,6 +62,49 @@ export default function Home() {
               </Pressable>
             </View>
           </View>
+        </View>
+
+        {/* Puter AI Fallback */}
+        <View className="mb-6">
+          <View className="flex-row items-center gap-2 mb-4">
+            <Zap color="#ff7e2d" size={20} />
+            <Text className="text-lg font-semibold text-on-surface">AI Fallback Engine</Text>
+          </View>
+          {isSignedIn ? (
+            <View className="bg-surface-container-high rounded-xl p-5 border border-status-answered/30">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center gap-3">
+                  <View className="w-3 h-3 rounded-full bg-status-answered" />
+                  <View>
+                    <Text className="text-sm font-semibold text-status-answered">Puter AI Connected</Text>
+                    <Text className="text-xs text-on-surface-variant">{username ? `@${username}` : 'Free unlimited AI fallback active'}</Text>
+                  </View>
+                </View>
+                <Pressable
+                  onPress={signOut}
+                  className="px-3 py-2 rounded-lg border border-outline-variant/50 active:bg-surface-variant"
+                >
+                  <LogOut color="#8b919d" size={16} />
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <Pressable
+              onPress={signIn}
+              className="bg-surface-container-high rounded-xl p-5 border border-tertiary/30 active:bg-surface-container-highest"
+            >
+              <View className="flex-row items-center gap-3">
+                <View className="bg-tertiary-container/20 p-3 rounded-full">
+                  <Zap color="#ff7e2d" size={24} />
+                </View>
+                <View className="flex-1">
+                  <Text className="text-base font-semibold text-on-surface mb-1">Connect Puter AI</Text>
+                  <Text className="text-xs text-on-surface-variant">Free unlimited AI fallback when Gemini hits rate limits. No API key needed!</Text>
+                </View>
+                <ArrowRight color="#ff7e2d" size={20} />
+              </View>
+            </Pressable>
+          )}
         </View>
 
         {/* Quick Actions Grid */}

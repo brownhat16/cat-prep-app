@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { View, Text, Pressable, Image, ActivityIndicator } from 'react-native';
-import { Menu, Lightbulb, Bot } from 'lucide-react-native';
+import { Menu, Lightbulb, Bot, Zap } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { aiService } from '../../api/client';
+import { usePuter } from '../../providers/PuterProvider';
 
 export default function QuickSolve() {
   const insets = useSafeAreaInsets();
   const [showHint, setShowHint] = useState(false);
   const [loadingClone, setLoadingClone] = useState(false);
+  const [aiSource, setAiSource] = useState<'gemini' | 'puter' | null>(null);
+  const { isSignedIn, chat: puterChat } = usePuter();
 
   // Dummy question state
   const [question, setQuestion] = useState({
@@ -19,8 +22,9 @@ export default function QuickSolve() {
 
   const handleGenerateClone = async () => {
     setLoadingClone(true);
+    setAiSource(null);
     try {
-      // In a real app, you'd pass the topic from a selector. Hardcoding "Algebra" for testing.
+      // Try Gemini first via backend
       const cloneData = await aiService.generateClone("Algebra", "Medium");
       setQuestion({
         text: cloneData.question_text,
@@ -28,14 +32,58 @@ export default function QuickSolve() {
         options: cloneData.options
       });
       setShowHint(false);
+      setAiSource('gemini');
     } catch (error) {
-      console.error("Failed to generate clone:", error);
-      // Fallback to dummy if backend is unreachable
-      setQuestion({
-        text: "Five cars (Red, Blue, Green, Yellow, Black) are parked in a row. Blue is not at either end. Green is immediately between Red and Black. Yellow is immediately between Blue and Green. If Red is parked first, what is the order?",
-        hint: "Follow the same logical deduction structure as the original puzzle.",
-        options: ["Red, Green, Black, Yellow, Blue", "Red, Black, Green, Blue, Yellow", "Red, Green, Yellow, Blue, Black", "Red, Blue, Green, Yellow, Black"]
-      });
+      console.warn("Gemini failed, trying Puter fallback...", error);
+      
+      // Fallback to Puter AI if signed in
+      if (isSignedIn) {
+        try {
+          const prompt = `You are an expert CAT exam setter. Generate a NEW, high-quality multiple choice question on Algebra with Medium difficulty.
+It should test logical reasoning and quantitative aptitude.
+Include 4 options, the correct answer, and a concept hint.
+Return ONLY valid JSON (no markdown, no code blocks): {"question_text": "...", "options": ["A", "B", "C", "D"], "answer": "...", "concept_hint": "..."}`;
+
+          const responseText = await puterChat(prompt, 'claude-sonnet-4-20250514');
+          
+          // Parse the JSON response
+          let cleaned = responseText.trim();
+          if (cleaned.startsWith('```json')) {
+            cleaned = cleaned.slice(7);
+          }
+          if (cleaned.startsWith('```')) {
+            cleaned = cleaned.slice(3);
+          }
+          if (cleaned.endsWith('```')) {
+            cleaned = cleaned.slice(0, -3);
+          }
+          cleaned = cleaned.trim();
+          
+          const cloneData = JSON.parse(cleaned);
+          setQuestion({
+            text: cloneData.question_text,
+            hint: cloneData.concept_hint,
+            options: cloneData.options
+          });
+          setShowHint(false);
+          setAiSource('puter');
+        } catch (puterError) {
+          console.error("Puter fallback also failed:", puterError);
+          // Final fallback to dummy
+          setQuestion({
+            text: "Five cars (Red, Blue, Green, Yellow, Black) are parked in a row. Blue is not at either end. Green is immediately between Red and Black. Yellow is immediately between Blue and Green. If Red is parked first, what is the order?",
+            hint: "Follow the same logical deduction structure as the original puzzle.",
+            options: ["Red, Green, Black, Yellow, Blue", "Red, Black, Green, Blue, Yellow", "Red, Green, Yellow, Blue, Black", "Red, Blue, Green, Yellow, Black"]
+          });
+        }
+      } else {
+        // No Puter, use dummy fallback
+        setQuestion({
+          text: "Five cars (Red, Blue, Green, Yellow, Black) are parked in a row. Blue is not at either end. Green is immediately between Red and Black. Yellow is immediately between Blue and Green. If Red is parked first, what is the order?",
+          hint: "Follow the same logical deduction structure as the original puzzle.",
+          options: ["Red, Green, Black, Yellow, Blue", "Red, Black, Green, Blue, Yellow", "Red, Green, Yellow, Blue, Black", "Red, Blue, Green, Yellow, Black"]
+        });
+      }
     } finally {
       setLoadingClone(false);
     }
@@ -71,7 +119,17 @@ export default function QuickSolve() {
 
           <View className="flex-row justify-between items-center mb-6">
             <Text className="text-sm font-semibold tracking-widest text-primary">PUZZLE ARENA</Text>
-            <Text className="text-sm font-semibold text-secondary">02:18</Text>
+            <View className="flex-row items-center gap-2">
+              {aiSource && (
+                <View className={`flex-row items-center gap-1 px-2 py-1 rounded-full ${aiSource === 'gemini' ? 'bg-primary/10' : 'bg-tertiary-container/10'}`}>
+                  {aiSource === 'puter' ? <Zap color="#ff7e2d" size={10} /> : <Bot color="#a4c9ff" size={10} />}
+                  <Text className={`text-[9px] font-bold tracking-wider ${aiSource === 'gemini' ? 'text-primary' : 'text-tertiary'}`}>
+                    {aiSource === 'gemini' ? 'GEMINI' : 'PUTER'}
+                  </Text>
+                </View>
+              )}
+              <Text className="text-sm font-semibold text-secondary">02:18</Text>
+            </View>
           </View>
 
           <Text className="text-xl font-bold text-on-surface mb-6 leading-relaxed">
