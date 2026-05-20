@@ -341,6 +341,7 @@ class CloneBatchRequest(BaseModel):
     topic: str
     difficulty: str = "Medium"
     count: int = 10
+    excludeQuestions: List[str] = []
 
 @app.post("/generate-clone/")
 async def generate_clone(request: CloneRequest):
@@ -363,6 +364,7 @@ async def generate_clones(request: CloneBatchRequest):
             request.topic,
             request.difficulty,
             request.count,
+            request.excludeQuestions,
         )
     except Exception as exc:
         add_log(

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const ARENA_QUEUE_KEY = 'study_queue:arena';
+const ARENA_SEEN_KEY = 'study_queue:arena_seen';
 const FLASHCARD_QUEUE_PREFIX = 'study_queue:flashcards:';
 const FLASHCARD_REVIEW_QUEUE_KEY = 'study_queue:flashcard_reviews';
 
@@ -53,12 +54,31 @@ export async function saveArenaQueue(queue: CachedArenaQuestion[]): Promise<void
   await writeJson(ARENA_QUEUE_KEY, queue);
 }
 
+export async function loadSeenArenaQuestions(): Promise<string[]> {
+  return readJson<string[]>(ARENA_SEEN_KEY, []);
+}
+
+export async function saveSeenArenaQuestions(seen: string[]): Promise<void> {
+  await writeJson(ARENA_SEEN_KEY, seen);
+}
+
+export async function markArenaQuestionSeen(questionText: string, maxSize: number = 250): Promise<string[]> {
+  const existing = await loadSeenArenaQuestions();
+  if (existing.includes(questionText)) {
+    return existing;
+  }
+  const updated = [...existing, questionText].slice(-maxSize);
+  await saveSeenArenaQuestions(updated);
+  return updated;
+}
+
 export async function mergeArenaQueue(
   incoming: CachedArenaQuestion[],
   maxSize: number = 10,
 ): Promise<CachedArenaQuestion[]> {
   const existing = await loadArenaQueue();
-  const seen = new Set(existing.map((item) => item.text));
+  const served = await loadSeenArenaQuestions();
+  const seen = new Set([...served, ...existing.map((item) => item.text)]);
   const merged = [...existing];
   for (const item of incoming) {
     if (seen.has(item.text)) {
@@ -78,13 +98,16 @@ export async function mergeArenaQueue(
 export async function shiftArenaQueue(): Promise<{
   next: CachedArenaQuestion | null;
   remaining: CachedArenaQuestion[];
+  seen: string[];
 }> {
   const queue = await loadArenaQueue();
   const [next, ...remaining] = queue;
   await saveArenaQueue(remaining);
+  const seen = next ? await markArenaQuestionSeen(next.text) : await loadSeenArenaQuestions();
   return {
     next: next ?? null,
     remaining,
+    seen,
   };
 }
 

@@ -4,7 +4,7 @@ import { Menu, Lightbulb, Bot, Zap } from 'lucide-react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import { aiService } from '../../api/client';
-import { loadArenaQueue, mergeArenaQueue, saveArenaQueue, shiftArenaQueue } from '../../lib/studyQueue';
+import { loadArenaQueue, loadSeenArenaQuestions, mergeArenaQueue, saveArenaQueue, shiftArenaQueue } from '../../lib/studyQueue';
 import { usePuter } from '../../providers/PuterProvider';
 
 type ArenaQuestion = {
@@ -95,8 +95,9 @@ Return ONLY valid JSON array (no markdown, no code blocks): [{"question_text":".
   };
 
   const loadCloneBatch = async (count: number = 10): Promise<QueuedArenaQuestion[]> => {
+    const seenQuestions = await loadSeenArenaQuestions();
     try {
-      const result = await aiService.generateClones('Algebra', 'Medium', count);
+      const result = await aiService.generateClones('Algebra', 'Medium', count, seenQuestions);
       if (result.clones?.length > 0) {
         return result.clones.map((clone) => ({
           text: clone.question_text,

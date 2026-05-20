@@ -111,9 +111,10 @@ def _fallback_flashcards(topic: str, count: int):
     return templates[: max(1, min(count, len(templates)))]
 
 
-def _fallback_clones(topic: str, difficulty: str, count: int):
+def _fallback_clones(topic: str, difficulty: str, count: int, excluded_questions: list[str] | None = None):
     safe_topic = topic or "CAT"
     safe_difficulty = difficulty or "Medium"
+    excluded = set(excluded_questions or [])
     scenarios = [
         ("students", "solve", "problems", "second"),
         ("teams", "complete", "tasks", "third"),
@@ -127,7 +128,8 @@ def _fallback_clones(topic: str, difficulty: str, count: int):
         ("shops", "earn", "orders", "second"),
     ]
     clones = []
-    for index in range(max(1, count)):
+    index = 0
+    while len(clones) < max(1, count) and index < 100:
         actor_plural, verb, unit, target_position = scenarios[index % len(scenarios)]
         ratio_a = 2 + (index % 3)
         ratio_b = 3 + (index % 4)
@@ -140,19 +142,23 @@ def _fallback_clones(topic: str, difficulty: str, count: int):
         }[target_position]
         part_value = total // (ratio_a + ratio_b + ratio_c)
         answer = str(target_share * part_value)
-        clones.append(
-            {
-                "question_text": f"Three {actor_plural} {verb} {safe_topic.lower()} {unit} of {safe_difficulty.lower()} difficulty in the ratio {ratio_a}:{ratio_b}:{ratio_c}. If the total is {total}, how many {unit} does the {target_position} one handle?",
-                "options": [
-                    str(max(1, int(answer) - part_value)),
-                    str(max(1, int(answer) - 1)),
-                    answer,
-                    str(int(answer) + part_value),
-                ],
-                "answer": answer,
-                "concept_hint": "Convert the ratio into total parts, find one part, then multiply by the target share.",
-            }
-        )
+        question_text = f"Three {actor_plural} {verb} {safe_topic.lower()} {unit} of {safe_difficulty.lower()} difficulty in the ratio {ratio_a}:{ratio_b}:{ratio_c}. If the total is {total}, how many {unit} does the {target_position} one handle?"
+        if question_text not in excluded:
+            clones.append(
+                {
+                    "question_text": question_text,
+                    "options": [
+                        str(max(1, int(answer) - part_value)),
+                        str(max(1, int(answer) - 1)),
+                        answer,
+                        str(int(answer) + part_value),
+                    ],
+                    "answer": answer,
+                    "concept_hint": "Convert the ratio into total parts, find one part, then multiply by the target share.",
+                }
+            )
+            excluded.add(question_text)
+        index += 1
     return clones
 
 
@@ -176,17 +182,19 @@ def _normalize_clone_item(clone, topic: str, difficulty: str):
     }
 
 
-def _normalize_clone_batch(clones, topic: str, difficulty: str, count: int):
+def _normalize_clone_batch(clones, topic: str, difficulty: str, count: int, excluded_questions: list[str] | None = None):
     normalized = []
+    excluded = set(excluded_questions or [])
     for clone in clones or []:
         normalized_clone = _normalize_clone_item(clone, topic, difficulty)
-        if normalized_clone:
+        if normalized_clone and normalized_clone["question_text"] not in excluded:
             normalized.append(normalized_clone)
+            excluded.add(normalized_clone["question_text"])
         if len(normalized) >= max(1, count):
             break
     if normalized:
         return normalized
-    return _fallback_clones(topic, difficulty, count)
+    return _fallback_clones(topic, difficulty, count, excluded_questions)
 
 
 def _normalize_flashcards(cards, topic: str, count: int):
@@ -335,10 +343,18 @@ def generate_flashcards(topic: str, count: int = 5):
             return _normalize_flashcards([], safe_topic, safe_count)
 
 
-def generate_question_clones(topic: str, difficulty: str, count: int = 10):
+def generate_question_clones(topic: str, difficulty: str, count: int = 10, excluded_questions: list[str] | None = None):
     safe_count = max(1, min(count, 10))
     safe_topic = topic or "CAT"
     safe_difficulty = difficulty or "Medium"
+
+    excluded_prompt = ""
+    if excluded_questions:
+        excluded_preview = "\n".join(f"- {question}" for question in excluded_questions[:50])
+        excluded_prompt = f"""
+    Do not repeat any question that is semantically the same as these already-served questions:
+    {excluded_preview}
+    """
 
     prompt = f"""
     You are an expert CAT exam setter. Generate {safe_count} NEW, high-quality multiple choice questions on {safe_topic} with {safe_difficulty} difficulty.
@@ -347,6 +363,8 @@ def generate_question_clones(topic: str, difficulty: str, count: int = 10):
     - include exactly 4 options
     - include the correct answer
     - include a short concept hint
+    - be unique and not overlap with previously served questions
+    {excluded_prompt}
 
     Return ONLY valid JSON as an array:
     [
@@ -379,7 +397,7 @@ def generate_question_clones(topic: str, difficulty: str, count: int = 10):
         response = _generate_clones()
         clones = json.loads(response.text)
         return {
-            "clones": _normalize_clone_batch(clones, safe_topic, safe_difficulty, safe_count),
+            "clones": _normalize_clone_batch(clones, safe_topic, safe_difficulty, safe_count, excluded_questions),
             "source": "gemini",
         }
     except Exception:
@@ -387,11 +405,11 @@ def generate_question_clones(topic: str, difficulty: str, count: int = 10):
             content = _generate_with_puter(prompt)
             clones = json.loads(content)
             return {
-                "clones": _normalize_clone_batch(clones, safe_topic, safe_difficulty, safe_count),
+                "clones": _normalize_clone_batch(clones, safe_topic, safe_difficulty, safe_count, excluded_questions),
                 "source": "puter",
             }
         except Exception:
             return {
-                "clones": _fallback_clones(safe_topic, safe_difficulty, safe_count),
+                "clones": _fallback_clones(safe_topic, safe_difficulty, safe_count, excluded_questions),
                 "source": "local",
             }
