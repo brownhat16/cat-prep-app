@@ -300,6 +300,45 @@ def generate_question_clone(topic: str, difficulty: str):
 def generate_flashcards(topic: str, count: int = 5):
     safe_count = max(1, min(count, 10))
     safe_topic = topic or "CAT Concepts"
+    
+    # RAG Integration: Retrieve custom uploaded formula/concept references from Pinecone
+    context = ""
+    try:
+        client, pc = _get_clients()
+        query_text = f"{safe_topic} formula concept rule CAT"
+        
+        @retry(
+            wait=wait_exponential(multiplier=2, min=4, max=60),
+            stop=stop_after_attempt(5),
+            retry=retry_if_exception(_is_retryable_error),
+        )
+        def _embed_query():
+            return client.models.embed_content(
+                model="gemini-embedding-001",
+                contents=query_text,
+                config=genai.types.EmbedContentConfig(output_dimensionality=768)
+            )
+            
+        embed_response = _embed_query()
+        embedding = embed_response.embeddings[0].values
+        
+        index = pc.Index(index_name)
+        search_results = index.query(
+            vector=embedding,
+            top_k=5,
+            include_metadata=True
+        )
+        
+        if search_results and 'matches' in search_results:
+            for match in search_results['matches']:
+                meta = match.get('metadata', {})
+                q_text = meta.get('question_text')
+                hint_text = meta.get('concept_hint')
+                if q_text or hint_text:
+                    context += f"Concept/Formula reference:\n{q_text or ''}\nExplanation/Use: {hint_text or ''}\n\n"
+    except Exception as exc:
+        print(f"RAG query failed for flashcards, using default zero-shot generation: {exc}", flush=True)
+
     prompt = f"""
     You are an expert CAT exam tutor. Generate {safe_count} high-quality flashcards for the topic "{safe_topic}".
     Each flashcard must contain:
@@ -307,6 +346,9 @@ def generate_flashcards(topic: str, count: int = 5):
     - back: the answer, formula, or compact explanation
     - explanation: why this matters for CAT preparation
     - topic: "{safe_topic}"
+
+    Additional reference concepts extracted from user's uploaded formula guides (use these to make highly tailored, custom cards matching the uploaded formulas):
+    {context}
 
     Return ONLY valid JSON as an array:
     [

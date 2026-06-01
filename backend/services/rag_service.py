@@ -147,8 +147,13 @@ async def _process_and_ingest_pdf_once(file_content: bytes, filename: str, uploa
     _log(f"Prepared prompt chunk chars={len(chunk)}", upload_id=upload_id)
     
     prompt = """
-    Extract CAT exam questions from the following text and return them as a JSON array.
-    Format: [{"section": "VARC/DILR/QA", "topic": "...", "question_text": "...", "options": ["A", "B", "C", "D"], "type": "MCQ/TITA", "answer": "...", "concept_hint": "..."}]
+    You are an expert CAT instructor. Analyze the following text, which contains CAT exam papers, study guides, or formula sheets.
+    Extract the existing CAT questions, OR convert the concepts and formulas in the text into highly realistic, challenging CAT-style practice questions that directly test these formulas!
+    For each formula or concept, construct a high-caliber Multiple-Choice Question (MCQ) requiring its application.
+    
+    Return them as a JSON array in this format:
+    [{"section": "VARC/DILR/QA", "topic": "Name of the topic/formula", "question_text": "Detailed question prompt...", "options": ["Option A", "Option B", "Option C", "Option D"], "type": "MCQ", "answer": "Option text matching correct one exactly", "concept_hint": "Detailed explanation of the formula and how to apply it step-by-step"}]
+    
     Text:
     """ + chunk
     
