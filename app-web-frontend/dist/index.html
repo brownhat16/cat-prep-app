@@ -273,15 +273,45 @@
                     <span class="card-tip">Click card or press Space to Reveal</span>
                   </div>
                 </div>
-                <div class="flashcard-face flashcard-back">
-                  <div class="card-inner-wrapper">
+                <div class="flashcard-face flashcard-back" style="overflow-y: auto;">
+                  <div class="card-inner-wrapper" style="padding-bottom: 24px;">
                     <span class="card-topic-tag">Concept Formula / Strategy</span>
                     <p class="card-answer-text" id="card-back">Checking details...</p>
-                    <div class="card-explanation-box">
+                    <div class="card-explanation-box" style="margin-bottom: 14px;">
                       <strong>EXPLANATION:</strong>
                       <p id="card-explanation">Explanation here</p>
                     </div>
-                    <span class="card-tip">Click card to Flip Back</span>
+
+                    <!-- Challenge Practice Question Section -->
+                    <div class="card-practice-container" id="card-practice-container" style="display: none; margin-top: 16px; width: 100%; border-top: 1px dashed var(--border); padding-top: 14px;">
+                      <button class="btn btn-outline" id="btn-toggle-practice" style="width: 100%; justify-content: center; gap: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; border: 1px dashed rgba(88, 166, 255, 0.4); background: rgba(88, 166, 255, 0.05); color: #58a6ff; padding: 10px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; transition: all 0.2s;">
+                        <span>🎯 Solve High CAT Level Question</span>
+                      </button>
+
+                      <div id="card-practice-box" style="display: none; margin-top: 12px; padding: 14px; background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border); border-radius: 10px; text-align: left;">
+                        <h4 style="margin: 0 0 8px 0; font-size: 11px; color: #58a6ff; font-weight: 800; letter-spacing: 0.8px; text-transform: uppercase;">CAT Challenge Question</h4>
+                        <p id="practice-question-text" style="font-size: 13px; line-height: 1.5; color: #e6edf3; margin: 0 0 12px 0; font-weight: 500;">Question text here...</p>
+                        
+                        <div id="practice-options" style="display: grid; grid-template-columns: 1fr; gap: 8px; margin-bottom: 12px;">
+                          <!-- MCQ Buttons will be injected here dynamically -->
+                        </div>
+
+                        <div id="practice-feedback" style="display: none; margin: 8px 0 12px; padding: 8px 12px; font-size: 12px; font-weight: 600; border-radius: 6px; text-align: center;">
+                          <!-- Correct/Incorrect message -->
+                        </div>
+
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,0.05);">
+                          <button id="btn-practice-solution" style="font-size: 11px; font-weight: 700; color: #8b949e; cursor: pointer; border: 0; background: transparent; padding: 0; text-decoration: underline; transition: color 0.2s;">Show Step-by-Step Solution</button>
+                        </div>
+
+                        <div id="practice-solution-box" style="display: none; margin-top: 10px; font-size: 12px; line-height: 1.5; color: #8b949e; background: rgba(255,255,255,0.01); padding: 8px; border-radius: 6px; border-left: 2px solid #30363d;">
+                          <strong>SOLUTION:</strong>
+                          <p id="practice-solution-text" style="margin: 4px 0 0 0; font-weight: 400;"></p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <span class="card-tip" style="margin-top: 18px; display: block;">Click card background or Flip Back to return</span>
                   </div>
                 </div>
               </div>

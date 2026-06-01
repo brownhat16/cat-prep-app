@@ -76,39 +76,130 @@ def _generate_with_puter(prompt: str, model: str = "claude-3-5-sonnet") -> str:
 
 def _fallback_flashcards(topic: str, count: int):
     safe_topic = topic or "CAT Concepts"
-    templates = [
-        {
-            "front": f"{safe_topic}: Core Formula",
-            "back": "State the main rule, formula, or relationship for this topic.",
-            "explanation": f"Use this as a quick recall anchor before solving harder {safe_topic} questions.",
-            "topic": safe_topic,
-        },
-        {
-            "front": f"{safe_topic}: Common Trap",
-            "back": "Identify the hidden assumption before applying the first visible method.",
-            "explanation": f"CAT questions in {safe_topic} often punish mechanical solving without checking constraints.",
-            "topic": safe_topic,
-        },
-        {
-            "front": f"{safe_topic}: Fast Elimination",
-            "back": "Use option elimination before full calculation whenever the answer choices are structurally different.",
-            "explanation": "This reduces solve time and is often the highest-yield exam tactic.",
-            "topic": safe_topic,
-        },
-        {
-            "front": f"{safe_topic}: Accuracy Check",
-            "back": "Re-read the final quantity being asked before locking the answer.",
-            "explanation": "Many CAT errors come from solving correctly but answering the wrong target.",
-            "topic": safe_topic,
-        },
-        {
-            "front": f"{safe_topic}: Revision Prompt",
-            "back": "Summarize the concept in one line and solve one representative question immediately after.",
-            "explanation": "Active recall plus immediate application helps retention far better than passive review.",
-            "topic": safe_topic,
-        },
-    ]
-    return templates[: max(1, min(count, len(templates)))]
+    t_lower = safe_topic.lower()
+    
+    if "algebra" in t_lower:
+        templates = [
+            {
+                "front": "Algebra: Quadratic Roots & Coefficients",
+                "back": "For ax^2 + bx + c = 0, roots p & q satisfy: p+q = -b/a, pq = c/a.",
+                "explanation": "Commonly tested in algebraic functions, series, and optimization setups.",
+                "topic": safe_topic,
+                "practice_question": {
+                    "question_text": "If the roots of the equation x^2 - px + q = 0 are consecutive integers, then what is p^2 - 4q?",
+                    "options": ["A) 1", "B) 2", "C) 3", "D) 4"],
+                    "answer": "A) 1",
+                    "solution": "Let roots be n and n+1. Sum = n + n + 1 = 2n + 1 = p. Product = n(n+1) = q. Therefore, p^2 - 4q = (2n + 1)^2 - 4n(n+1) = 4n^2 + 4n + 1 - 4n^2 - 4n = 1. The correct option is A."
+                }
+            },
+            {
+                "front": "Algebra: Difference of Squares & Sums",
+                "back": "(a - b)(a + b) = a^2 - b^2, and (a + b + c)^2 = a^2 + b^2 + c^2 + 2(ab + bc + ca).",
+                "explanation": "Used to simplify quadratic equations and find constraints in variable systems.",
+                "topic": safe_topic,
+                "practice_question": {
+                    "question_text": "If a + b + c = 6 and ab + bc + ca = 11, what is the value of a^2 + b^2 + c^2?",
+                    "options": ["A) 14", "B) 16", "C) 18", "D) 20"],
+                    "answer": "A) 14",
+                    "solution": "Using the identity: (a+b+c)^2 = a^2+b^2+c^2 + 2(ab+bc+ca) => 6^2 = a^2+b^2+c^2 + 2(11) => 36 = a^2+b^2+c^2 + 22 => a^2+b^2+c^2 = 14. Correct option is A."
+                }
+            }
+        ]
+    elif "geometry" in t_lower:
+        templates = [
+            {
+                "front": "Geometry: Apollonius' Theorem",
+                "back": "AB^2 + AC^2 = 2 * (AD^2 + BD^2) where AD is the median to side BC.",
+                "explanation": "Extremely useful in finding median lengths of a triangle directly without trigs.",
+                "topic": safe_topic,
+                "practice_question": {
+                    "question_text": "In a triangle ABC, AB = 6, AC = 8, and BC = 10. Find the length of the median AD to the side BC.",
+                    "options": ["A) 4", "B) 5", "C) 6", "D) 7"],
+                    "answer": "B) 5",
+                    "solution": "By Apollonius' theorem: AB^2 + AC^2 = 2(AD^2 + BD^2) => 36 + 64 = 2(AD^2 + 5^2) => 100 = 2(AD^2 + 25) => 50 = AD^2 + 25 => AD^2 = 25 => AD = 5. Correct option is B."
+                }
+            }
+        ]
+    elif "probability" in t_lower:
+        templates = [
+            {
+                "front": "Probability: Complementary Counting",
+                "back": "P(At least one) = 1 - P(None)",
+                "explanation": "Always use complement counting when 'at least' or 'at most' triggers complex multi-case combinations.",
+                "topic": safe_topic,
+                "practice_question": {
+                    "question_text": "A fair coin is tossed 5 times. What is the probability of getting at least one head?",
+                    "options": ["A) 1/32", "B) 31/32", "C) 15/16", "D) 7/8"],
+                    "answer": "B) 31/32",
+                    "solution": "P(At least one head) = 1 - P(No heads). The only way to get no heads is to get all tails (T-T-T-T-T), which has a probability of (1/2)^5 = 1/32. Thus, 1 - 1/32 = 31/32. Correct option is B."
+                }
+            }
+        ]
+    elif "number" in t_lower:
+        templates = [
+            {
+                "front": "Number Systems: Euler's Totient Theorem",
+                "back": "If a and n are co-prime, then a^phi(n) mod n = 1.",
+                "explanation": "Crucial for finding remainders of extremely large exponential terms.",
+                "topic": safe_topic,
+                "practice_question": {
+                    "question_text": "Find the remainder when 3^100 is divided by 7.",
+                    "options": ["A) 1", "B) 2", "C) 4", "D) 6"],
+                    "answer": "C) 4",
+                    "solution": "phi(7) = 6. 3^6 mod 7 = 1. We write 100 = 6 * 16 + 4. Thus, 3^100 mod 7 = (3^6)^16 * 3^4 mod 7 = 1 * 81 mod 7 = 4. Correct option is C."
+                }
+            }
+        ]
+    elif "permutation" in t_lower or "combinations" in t_lower:
+        templates = [
+            {
+                "front": "P&C: Circular Arrangements",
+                "back": "Number of ways to arrange n distinct objects around a circular table is (n - 1)!",
+                "explanation": "If clockwise and counter-clockwise are identical, it is (n - 1)! / 2.",
+                "topic": safe_topic,
+                "practice_question": {
+                    "question_text": "In how many ways can 6 people be seated around a circular table such that two particular people are never seated together?",
+                    "options": ["A) 120", "B) 72", "C) 48", "D) 24"],
+                    "answer": "B) 72",
+                    "solution": "Total seating = 5! = 120. Seating where two particular people are together = 4! * 2! = 48. Never together = 120 - 48 = 72 ways. Correct option is B."
+                }
+            }
+        ]
+    elif "time" in t_lower or "work" in t_lower:
+        templates = [
+            {
+                "front": "Time & Work: Efficiency Ratio Rule",
+                "back": "Ratio of efficiency of A to B is E_a : E_b = D_b : D_a.",
+                "explanation": "Solve work problems instantly by establishing a 'Total Work Units' as the LCM of days.",
+                "topic": safe_topic,
+                "practice_question": {
+                    "question_text": "A is 60% more efficient than B. If B alone can complete a work in 26 days, in how many days can A and B working together complete the same work?",
+                    "options": ["A) 9 days", "B) 10 days", "C) 12 days", "D) 15 days"],
+                    "answer": "B) 10 days",
+                    "solution": "Let B's efficiency be 10 units/day. Then A's efficiency is 16 units/day. Total work = 26 * 10 = 260 units. Combined efficiency = 26 units/day. Time taken together = 260 / 26 = 10 days. Correct option is B."
+                }
+            }
+        ]
+    else:
+        templates = [
+            {
+                "front": f"{safe_topic}: Core Principle",
+                "back": "State the main constraint and active formula required.",
+                "explanation": "Essential concept required for quick solving.",
+                "topic": safe_topic,
+                "practice_question": {
+                    "question_text": f"Solve for f(x) under the {safe_topic} standard assumptions where inputs are prime integers.",
+                    "options": ["A) 0", "B) 1", "C) Prime only", "D) Undefined"],
+                    "answer": "B) 1",
+                    "solution": "Standard identity holds f(x) = 1 under default prime domain assumptions. Correct option is B."
+                }
+            }
+        ]
+
+    # Duplicate or trim to match count
+    while len(templates) < count:
+        templates.append(templates[0].copy())
+    return templates[:count]
 
 
 def _fallback_clones(topic: str, difficulty: str, count: int, excluded_questions: list[str] | None = None):
@@ -208,6 +299,19 @@ def _normalize_flashcards(cards, topic: str, count: int):
         explanation = str(card.get("explanation", "")).strip()
         if not front or not back or not explanation:
             continue
+        
+        practice_q = card.get("practice_question")
+        normalized_q = None
+        if isinstance(practice_q, dict):
+            normalized_q = {
+                "question_text": str(practice_q.get("question_text") or "").strip(),
+                "options": [str(opt).strip() for opt in practice_q.get("options") or [] if str(opt).strip()],
+                "answer": str(practice_q.get("answer") or "").strip(),
+                "solution": str(practice_q.get("solution") or "").strip()
+            }
+            if not normalized_q["question_text"] or len(normalized_q["options"]) < 2:
+                normalized_q = None
+
         normalized.append(
             {
                 "id": str(uuid.uuid4()),
@@ -215,6 +319,7 @@ def _normalize_flashcards(cards, topic: str, count: int):
                 "back": back,
                 "explanation": explanation,
                 "topic": str(card.get("topic") or safe_topic),
+                "practice_question": normalized_q
             }
         )
         if len(normalized) >= max(1, count):
@@ -346,13 +451,29 @@ def generate_flashcards(topic: str, count: int = 5):
     - back: the answer, formula, or compact explanation
     - explanation: why this matters for CAT preparation
     - topic: "{safe_topic}"
+    - practice_question: a challenging, high-level CAT exam style multiple choice question testing this concept. It must be an object with:
+        * question_text: "..." (detailed problem statement)
+        * options: ["Option A", "Option B", "Option C", "Option D"] (4 choices)
+        * answer: "..." (matching the correct option text exactly)
+        * solution: "..." (step-by-step mathematical breakdown)
 
     Additional reference concepts extracted from user's uploaded formula guides (use these to make highly tailored, custom cards matching the uploaded formulas):
     {context}
 
     Return ONLY valid JSON as an array:
     [
-      {{"front": "...", "back": "...", "explanation": "...", "topic": "{safe_topic}"}}
+      {{
+        "front": "...",
+        "back": "...",
+        "explanation": "...",
+        "topic": "{safe_topic}",
+        "practice_question": {{
+          "question_text": "...",
+          "options": ["...", "...", "...", "..."],
+          "answer": "...",
+          "solution": "..."
+        }}
+      }}
     ]
     """
 

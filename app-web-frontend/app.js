@@ -521,14 +521,54 @@ function submitArenaAnswer() {
 // ----------------------------------------------------------
 const LOCAL_FLASHCARDS = {
   Algebra: [
-    { front: "Algebra: Core Rule", back: "For a quadratic equation ax² + bx + c = 0, sum of roots is -b/a, and product is c/a.", explanation: "Useful in simplifying linear and circular sets." },
-    { front: "Algebra: Arithmetic Progression", back: "Sum of n terms = (n/2) * [2a + (n-1)d]", explanation: "Applicable in series puzzles and linear sequences." },
+    { 
+      front: "Algebra: Quadratic Roots & Coefficients", 
+      back: "For ax² + bx + c = 0, sum of roots is -b/a, and product is c/a.", 
+      explanation: "Useful in simplifying linear and circular root sets.",
+      practice_question: {
+        question_text: "If the roots of the equation x² - px + q = 0 are consecutive integers, then what is p² - 4q?",
+        options: ["A) 1", "B) 2", "C) 3", "D) 4"],
+        answer: "A) 1",
+        solution: "Let roots be n and n+1. Sum = n + n + 1 = 2n + 1 = p. Product = n(n+1) = q. Therefore, p² - 4q = (2n + 1)² - 4n(n+1) = 4n² + 4n + 1 - 4n² - 4n = 1. The correct option is A."
+      }
+    },
+    { 
+      front: "Algebra: Difference of Squares & Sums", 
+      back: "(a - b)(a + b) = a² - b², and (a + b + c)² = a² + b² + c² + 2(ab + bc + ca).", 
+      explanation: "Used to simplify quadratic equations and find constraints in variable systems.",
+      practice_question: {
+        question_text: "If a + b + c = 6 and ab + bc + ca = 11, what is the value of a² + b² + c²?",
+        options: ["A) 14", "B) 16", "C) 18", "D) 20"],
+        answer: "A) 14",
+        solution: "Using the identity: (a+b+c)² = a² + b² + c² + 2(ab+bc+ca) => 6² = a² + b² + c² + 2(11) => 36 = a² + b² + c² + 22 => a² + b² + c² = 14. Correct option is A."
+      }
+    },
   ],
   Geometry: [
-    { front: "Geometry: Pythagoras Triplet", back: "Common integers are (3,4,5), (5,12,13), (8,15,17), (7,24,25).", explanation: "Use them to solve right angle setups instantly without equations." },
+    { 
+      front: "Geometry: Apollonius' Theorem", 
+      back: "AB² + AC² = 2 * (AD² + BD²) where AD is the median to side BC.", 
+      explanation: "Use it to solve right angle setups instantly without equations.",
+      practice_question: {
+        question_text: "In a triangle ABC, AB = 6, AC = 8, and BC = 10. Find the length of the median AD to the side BC.",
+        options: ["A) 4", "B) 5", "C) 6", "D) 7"],
+        answer: "B) 5",
+        solution: "Since 6² + 8² = 10², triangle ABC is right-angled at A. In any right-angled triangle, the length of the median to the hypotenuse is exactly half the length of the hypotenuse. Thus, AD = BC / 2 = 10 / 2 = 5. Correct option is B."
+      }
+    },
   ],
   Probability: [
-    { front: "Probability: Bayes' Theorem", back: "P(A|B) = [P(B|A) * P(A)] / P(B)", explanation: "Standard formula for conditional probability." }
+    { 
+      front: "Probability: Complementary Counting", 
+      back: "P(At least one) = 1 - P(None)", 
+      explanation: "Standard formula for conditional and complementary probability.",
+      practice_question: {
+        question_text: "A coin is tossed 5 times. What is the probability of getting at least one head?",
+        options: ["A) 1/32", "B) 31/32", "C) 15/16", "D) 7/8"],
+        answer: "B) 31/32",
+        solution: "P(At least one head) = 1 - P(No heads). The only way to get no heads is to get all tails (T-T-T-T-T), which has a probability of (1/2)⁵ = 1/32. Thus, 1 - 1/32 = 31/32. Correct option is B."
+      }
+    }
   ]
 };
 
@@ -577,8 +617,14 @@ async function loadFlashcardDeck(topic) {
   // Puter AI Fallback
   if (deck.length === 0 && puter.auth.isSignedIn()) {
     try {
-      const systemPrompt = `You are a high-caliber CAT trainer. Build a list of 5 high-speed memory flashcards for the topic: ${topic}. Each card should have short 'front' prompt, a concise conceptual 'back' formula/strategy, and a short 'explanation'. Returns JSON ONLY in this format:
-      {"flashcards": [{"front": "...", "back": "...", "explanation": "..."}]}`;
+      const systemPrompt = `You are a high-caliber CAT trainer. Build a list of 5 high-speed memory flashcards for the topic: ${topic}. Each card should have a short 'front' prompt, a concise conceptual 'back' formula/strategy, a short 'explanation', and a 'practice_question' object containing:
+      - 'question_text': a challenging, high-level CAT exam style multiple choice question testing this concept
+      - 'options': an array of 4 choices
+      - 'answer': correct option matching one in options exactly
+      - 'solution': step-by-step breakdown using the formula.
+      Returns JSON ONLY in this format:
+      {"flashcards": [{"front": "...", "back": "...", "explanation": "...", "practice_question": {"question_text": "...", "options": ["...", "...", "...", "..."], "answer": "...", "solution": "..."}}]}
+      `;
       
       const response = await puter.ai.chat(systemPrompt + "\nGenerate now.");
       const cleanJson = response.toString().replace(/```json/g, "").replace(/```/g, "").trim();
@@ -615,6 +661,90 @@ function showCard(idx) {
     document.getElementById("card-back").textContent = flashcards[idx].back;
     document.getElementById("card-explanation").textContent = flashcards[idx].explanation || "No advanced details.";
     
+    // Reset Practice Question Box
+    const practiceContainer = document.getElementById("card-practice-container");
+    const practiceBox = document.getElementById("card-practice-box");
+    const btnTogglePractice = document.getElementById("btn-toggle-practice");
+    const btnPracticeSolution = document.getElementById("btn-practice-solution");
+    const solutionBox = document.getElementById("practice-solution-box");
+    const practiceFeedback = document.getElementById("practice-feedback");
+
+    if (practiceContainer) {
+      const q = flashcards[idx].practice_question;
+      if (q && q.question_text) {
+        practiceContainer.style.display = "block";
+        practiceBox.style.display = "none";
+        btnTogglePractice.textContent = "🎯 Solve High CAT Level Question";
+        btnTogglePractice.style.borderColor = "rgba(88, 166, 255, 0.4)";
+        btnTogglePractice.style.background = "rgba(88, 166, 255, 0.05)";
+        btnTogglePractice.style.color = "#58a6ff";
+
+        solutionBox.style.display = "none";
+        btnPracticeSolution.textContent = "Show Step-by-Step Solution";
+        practiceFeedback.style.display = "none";
+        practiceFeedback.textContent = "";
+
+        document.getElementById("practice-question-text").textContent = q.question_text;
+        document.getElementById("practice-solution-text").textContent = q.solution || "No detailed solution steps provided.";
+
+        // Render option buttons
+        const optsContainer = document.getElementById("practice-options");
+        optsContainer.innerHTML = (q.options || []).map((opt) => {
+          return `<button class="practice-opt-btn" data-option="${esc(opt)}" style="width: 100%; text-align: left; padding: 10px 12px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: inherit; font-size: 12.5px; font-weight: 500; cursor: pointer; transition: all 0.2s; outline: none; margin-bottom: 2px;">${esc(opt)}</button>`;
+        }).join("");
+
+        // Add options click handlers
+        const optButtons = optsContainer.querySelectorAll(".practice-opt-btn");
+        optButtons.forEach(btn => {
+          btn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const selectedOpt = btn.getAttribute("data-option");
+            const isCorrect = selectedOpt === q.answer;
+
+            // Disable all option buttons
+            optButtons.forEach(b => {
+              b.disabled = true;
+              b.style.cursor = "default";
+              
+              // Highlight correct answer green
+              const bOpt = b.getAttribute("data-option");
+              if (bOpt === q.answer) {
+                b.style.background = "rgba(63, 185, 80, 0.15)";
+                b.style.borderColor = "#3fb950";
+                b.style.color = "#8ce99a";
+              }
+            });
+
+            // If selected is incorrect, highlight it red
+            if (!isCorrect) {
+              btn.style.background = "rgba(248, 81, 73, 0.15)";
+              btn.style.borderColor = "#f85149";
+              btn.style.color = "#ffb4ab";
+
+              practiceFeedback.style.display = "block";
+              practiceFeedback.style.background = "rgba(248, 81, 73, 0.1)";
+              practiceFeedback.style.color = "#ffb4ab";
+              practiceFeedback.style.border = "1px solid rgba(248, 81, 73, 0.2)";
+              practiceFeedback.textContent = "❌ Incorrect. Check the step-by-step solution below to see why!";
+            } else {
+              practiceFeedback.style.display = "block";
+              practiceFeedback.style.background = "rgba(63, 185, 80, 0.1)";
+              practiceFeedback.style.color = "#8ce99a";
+              practiceFeedback.style.border = "1px solid rgba(63, 185, 80, 0.2)";
+              practiceFeedback.textContent = "🎉 Correct! You mastered this concept application.";
+            }
+
+            // Reveal solution
+            solutionBox.style.display = "block";
+            btnPracticeSolution.textContent = "Hide Step-by-Step Solution";
+          });
+        });
+
+      } else {
+        practiceContainer.style.display = "none";
+      }
+    }
+
     // Progress
     document.getElementById("card-index-label").textContent = `Card ${idx + 1} of ${flashcards.length}`;
     const pct = ((idx + 1) / flashcards.length) * 100;
@@ -970,6 +1100,53 @@ document.addEventListener("DOMContentLoaded", () => {
     fcCard.addEventListener("click", flipFlashcard);
   } else {
     document.getElementById("flashcard-card").addEventListener("click", flipFlashcard);
+  }
+
+  const fcBack = document.querySelector(".flashcard-back");
+  if (fcBack) {
+    fcBack.addEventListener("click", (e) => {
+      // Allow card to flip back only if clicked background or the bottom text hint
+      if (e.target.classList.contains("card-tip") || e.target.classList.contains("flashcard-back") || e.target.classList.contains("card-inner-wrapper")) {
+        return; // propagates to card click to flip back
+      }
+      e.stopPropagation();
+    });
+  }
+
+  const btnTogglePractice = document.getElementById("btn-toggle-practice");
+  const practiceBox = document.getElementById("card-practice-box");
+  if (btnTogglePractice && practiceBox) {
+    btnTogglePractice.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (practiceBox.style.display === "none") {
+        practiceBox.style.display = "block";
+        btnTogglePractice.textContent = "🙈 Hide Practice Question";
+        btnTogglePractice.style.borderColor = "var(--border)";
+        btnTogglePractice.style.background = "rgba(255, 255, 255, 0.02)";
+        btnTogglePractice.style.color = "var(--muted)";
+      } else {
+        practiceBox.style.display = "none";
+        btnTogglePractice.textContent = "🎯 Solve High CAT Level Question";
+        btnTogglePractice.style.borderColor = "rgba(88, 166, 255, 0.4)";
+        btnTogglePractice.style.background = "rgba(88, 166, 255, 0.05)";
+        btnTogglePractice.style.color = "#58a6ff";
+      }
+    });
+  }
+
+  const btnPracticeSolution = document.getElementById("btn-practice-solution");
+  const solutionBox = document.getElementById("practice-solution-box");
+  if (btnPracticeSolution && solutionBox) {
+    btnPracticeSolution.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (solutionBox.style.display === "none") {
+        solutionBox.style.display = "block";
+        btnPracticeSolution.textContent = "Hide Step-by-Step Solution";
+      } else {
+        solutionBox.style.display = "none";
+        btnPracticeSolution.textContent = "Show Step-by-Step Solution";
+      }
+    });
   }
 
   document.getElementById("btn-prev-card").addEventListener("click", () => {
