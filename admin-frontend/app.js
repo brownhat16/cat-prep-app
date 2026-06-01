@@ -181,6 +181,11 @@ async function uploadFiles(event) {
     form.append("files", file);
   }
 
+  const sectionSelect = document.getElementById("doc-section");
+  if (sectionSelect) {
+    form.append("section", sectionSelect.value);
+  }
+
   elements.uploadButton.disabled = true;
   elements.uploadStatus.textContent = "Uploading and queueing background jobs…";
 

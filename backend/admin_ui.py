@@ -138,6 +138,25 @@ def render_admin_html() -> str:
           <section class="card">
             <h2>Upload PDFs</h2>
             <form id="upload-form" class="stack">
+              <!-- Ingestion Target Selector -->
+              <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+                <label for="doc-type" style="font-size: 11px; font-weight: 800; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase;">Ingestion Target:</label>
+                <select id="doc-type" style="width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; outline: none; transition: border-color 0.2s;">
+                  <option value="formula">📚 Formula Sheets & Concept Guides (Custom Flashcards)</option>
+                  <option value="paper">📝 Real CAT Exam Papers (Arena & Mock Clones)</option>
+                </select>
+              </div>
+
+              <!-- Section Selector -->
+              <div class="form-group" style="display: flex; flex-direction: column; gap: 8px;">
+                <label for="doc-section" style="font-size: 11px; font-weight: 800; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase;">Target Section:</label>
+                <select id="doc-section" style="width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; outline: none; transition: border-color 0.2s;">
+                  <option value="Quant">📐 Quantitative Aptitude (Quant)</option>
+                  <option value="DILR">🧩 Data Interpretation & Logical Reasoning (DILR)</option>
+                  <option value="VARC">📖 Verbal Ability & Reading Comprehension (VARC)</option>
+                </select>
+              </div>
+
               <div class="drop">
                 <input id="file-input" name="files" type="file" accept="application/pdf" multiple />
               </div>
@@ -246,6 +265,11 @@ def render_admin_html() -> str:
         const form = new FormData();
         for (const file of input.files) {
           form.append("files", file);
+        }
+
+        const sectionSelect = document.getElementById("doc-section");
+        if (sectionSelect) {
+          form.append("section", sectionSelect.value);
         }
 
         try {

@@ -122,11 +122,11 @@ def _generate_with_puter(prompt: str) -> str:
     return _strip_code_fences(completion.choices[0].message.content or "")
 
 
-async def _process_and_ingest_pdf_once(file_content: bytes, filename: str, upload_id: Optional[str] = None):
+async def _process_and_ingest_pdf_once(file_content: bytes, filename: str, upload_id: Optional[str] = None, section: Optional[str] = None):
     client, pc = _get_clients()
     import pdfplumber
 
-    _log(f"Started ingest for file={filename!r}, bytes={len(file_content)}", upload_id=upload_id)
+    _log(f"Started ingest for file={filename!r}, bytes={len(file_content)} (target section={section})", upload_id=upload_id)
     
     text = ""
     with pdfplumber.open(io.BytesIO(file_content)) as pdf:
@@ -146,13 +146,25 @@ async def _process_and_ingest_pdf_once(file_content: bytes, filename: str, uploa
     chunk = text[:30000] 
     _log(f"Prepared prompt chunk chars={len(chunk)}", upload_id=upload_id)
     
-    prompt = """
-    You are an expert CAT instructor. Analyze the following text, which contains CAT exam papers, study guides, or formula sheets.
+    section_instruct = f"for the target section: {section}" if section else ""
+    target_sec = "QA"
+    if section:
+        if "quant" in section.lower():
+            target_sec = "QA"
+        elif "dilr" in section.lower():
+            target_sec = "DILR"
+        elif "varc" in section.lower():
+            target_sec = "VARC"
+
+    prompt = f"""
+    You are an expert CAT instructor. Analyze the following text, which contains CAT exam papers, study guides, or formula sheets {section_instruct}.
     Extract the existing CAT questions, OR convert the concepts and formulas in the text into highly realistic, challenging CAT-style practice questions that directly test these formulas!
     For each formula or concept, construct a high-caliber Multiple-Choice Question (MCQ) requiring its application.
     
+    IMPORTANT: You must classify every generated/extracted question under the section: "{target_sec}" (choose the exact one from: QA, DILR, VARC).
+    
     Return them as a JSON array in this format:
-    [{"section": "VARC/DILR/QA", "topic": "Name of the topic/formula", "question_text": "Detailed question prompt...", "options": ["Option A", "Option B", "Option C", "Option D"], "type": "MCQ", "answer": "Option text matching correct one exactly", "concept_hint": "Detailed explanation of the formula and how to apply it step-by-step"}]
+    [{{"section": "{target_sec}", "topic": "Name of the topic/formula", "question_text": "Detailed question prompt...", "options": ["Option A", "Option B", "Option C", "Option D"], "type": "MCQ", "answer": "Option text matching correct one exactly", "concept_hint": "Detailed explanation of the formula and how to apply it step-by-step"}}]
     
     Text:
     """ + chunk
@@ -262,6 +274,7 @@ async def process_and_ingest_pdf(
     max_attempts: int = 12,
     base_delay_seconds: int = 15,
     max_delay_seconds: int = 300,
+    section: Optional[str] = None,
 ):
     if upload_id:
         mark_upload_started(upload_id)
@@ -276,6 +289,7 @@ async def process_and_ingest_pdf(
                 file_content,
                 filename,
                 upload_id=upload_id,
+                section=section,
             )
             if upload_id:
                 mark_upload_succeeded(upload_id, upserted_vectors)

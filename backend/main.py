@@ -2,7 +2,7 @@ import asyncio
 import os
 import time
 import logging
-from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException
+from fastapi import FastAPI, UploadFile, File, BackgroundTasks, HTTPException, Form
 from fastapi import Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse
@@ -309,6 +309,7 @@ async def upload_pdf(
     background_tasks: BackgroundTasks,
     file: Optional[UploadFile] = File(None),
     files: Optional[List[UploadFile]] = File(None),
+    section: Optional[str] = Form(None),
 ):
     if not os.environ.get("GEMINI_API_KEY") or not os.environ.get("PINECONE_API_KEY"):
         raise HTTPException(
@@ -323,7 +324,13 @@ async def upload_pdf(
         file_content = await upload.read()
         filename = upload.filename or "uploaded.pdf"
         upload_record = create_upload(filename, len(file_content))
-        background_tasks.add_task(process_and_ingest_pdf, file_content, filename, upload_record["id"])
+        background_tasks.add_task(
+            process_and_ingest_pdf,
+            file_content,
+            filename,
+            upload_record["id"],
+            section=section,
+        )
         queued_files.append(filename)
 
     return {

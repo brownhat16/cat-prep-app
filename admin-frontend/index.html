@@ -47,6 +47,16 @@
                   </select>
                 </div>
 
+                <!-- Section Selector -->
+                <div class="section-selector" style="margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px;">
+                  <label for="doc-section" style="font-size: 11px; font-weight: 800; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase;">Target Section:</label>
+                  <select id="doc-section" style="width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: #fff; padding: 10px; border-radius: 8px; font-family: var(--font-sans); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s; outline: none;">
+                    <option value="Quant">📐 Quantitative Aptitude (Quant)</option>
+                    <option value="DILR">🧩 Data Interpretation & Logical Reasoning (DILR)</option>
+                    <option value="VARC">📖 Verbal Ability & Reading Comprehension (VARC)</option>
+                  </select>
+                </div>
+
                 <div class="dropzone">
                   <input id="file-input" type="file" accept="application/pdf" multiple />
                 </div>
