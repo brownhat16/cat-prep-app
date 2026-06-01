@@ -89,7 +89,7 @@ def _get_uploads(
 def _get_cors_origins() -> List[str]:
     raw_origins = os.environ.get(
         "BACKEND_CORS_ORIGINS",
-        "http://127.0.0.1:3001,http://localhost:3001,http://127.0.0.1:3000,http://localhost:3000",
+        "*",
     )
     origins = [origin.strip() for origin in raw_origins.split(",") if origin.strip()]
     return origins or ["*"]
