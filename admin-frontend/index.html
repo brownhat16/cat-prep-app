@@ -33,17 +33,26 @@
         <aside class="stack">
           <article class="card">
             <header class="card-header">
-              <h2>Upload PDFs</h2>
-              <p>Queue one or many CAT papers. The backend will retry temporary model failures automatically.</p>
+              <h2>Content Ingestion Engine</h2>
+              <p>Queue reference documents for semantic indexing. Select the document target below:</p>
             </header>
             <div class="card-body">
               <form id="upload-form" class="upload-panel">
+                <!-- Document Ingestion Type Selector -->
+                <div class="type-selector" style="margin-bottom: 16px; display: flex; flex-direction: column; gap: 8px;">
+                  <label for="doc-type" style="font-size: 11px; font-weight: 800; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase;">Ingestion Target:</label>
+                  <select id="doc-type" style="width: 100%; background: var(--panel-2); border: 1px solid var(--border); color: #fff; padding: 10px; border-radius: 8px; font-family: var(--font-sans); font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s; outline: none;">
+                    <option value="formula">📚 Formula Sheets & Concept Guides (Custom Flashcards)</option>
+                    <option value="paper">📝 Real CAT Exam Papers (Arena & Mock Clones)</option>
+                  </select>
+                </div>
+
                 <div class="dropzone">
                   <input id="file-input" type="file" accept="application/pdf" multiple />
                 </div>
                 <div id="selected-files" class="selected-files"></div>
                 <div class="button-row">
-                  <button id="upload-button" class="primary" type="submit">Upload Files</button>
+                  <button id="upload-button" class="primary" type="submit">Upload & Process</button>
                   <button id="refresh-button" class="secondary" type="button">Refresh</button>
                 </div>
                 <div id="upload-status" class="status-text"></div>
