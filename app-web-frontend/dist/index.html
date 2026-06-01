@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CAT Master AI · The Ultimate Prep Platform</title>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Outfit:wght@400;500;600;700;800&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+    <!-- Puter JS SDK -->
+    <script src="https://js.puter.com/v2/"></script>
+  </head>
+  <body>
+    <!-- Main Glassmorphic Wrapper -->
+    <div class="app-container">
+      
+      <!-- Left Navigation Sidebar -->
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-logo">
+            <span class="logo-glow"></span>
+            <span class="logo-text">CM</span>
+          </div>
+          <div class="brand-meta">
+            <h2>CAT Master</h2>
+            <span class="badge-premium">AI EDITION</span>
+          </div>
+        </div>
+
+        <nav class="nav-menu">
+          <button class="nav-item active" data-tab="dashboard">
+            <span class="nav-icon">🏠</span>
+            <span class="nav-label">Dashboard</span>
+          </button>
+          <button class="nav-item" data-tab="arena">
+            <span class="nav-icon">⚔️</span>
+            <span class="nav-label">Arena</span>
+          </button>
+          <button class="nav-item" data-tab="flashcards">
+            <span class="nav-icon">📚</span>
+            <span class="nav-label">Flashcards</span>
+          </button>
+          <button class="nav-item" data-tab="mocks">
+            <span class="nav-icon">📝</span>
+            <span class="nav-label">Mock Exams</span>
+          </button>
+          <button class="nav-item" data-tab="analytics">
+            <span class="nav-icon">📊</span>
+            <span class="nav-label">Analytics</span>
+          </button>
+        </nav>
+
+        <div class="sidebar-footer">
+          <div class="streak-widget">
+            <span class="streak-icon">🔥</span>
+            <div class="streak-details">
+              <span class="streak-count" id="sidebar-streak">0</span>
+              <span class="streak-label">Day Streak</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Main Panel Content -->
+      <main class="main-panel">
+        
+        <!-- Header -->
+        <header class="top-header">
+          <div class="header-search">
+            <h1 id="page-title">Dashboard</h1>
+          </div>
+          <div class="header-actions">
+            <!-- Puter AI Status Pill -->
+            <div id="puter-pill" class="puter-status-pill">
+              <span class="status-dot"></span>
+              <span class="status-text" id="puter-status-label">Puter Disconnected</span>
+            </div>
+            <!-- Profile Info -->
+            <div class="user-profile">
+              <img src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJAhGXW17ZUrva_IWI_y66KZK17jFucuWdBOGiY27DiEAXMxpAyMVvq2qM1ZkzoByTdjHmP6iKhLp-xDLHYCKBASdPvOHo9cSGYh3P4RoaDInTo_WNcIS95Uzuqv2zs1jEEsNcNQqDA8ATht0iJeThc2bxlChQBE7f-9lwz15fPTOaD8PvtC_4sD4TGKM6suvjqm-U6vzVkpQLjbVp-8j2BM-jlJT22mGe5r4gg4B9bSyjFDgt90UfKdVRvRKdtzan0KYWo4rcx-4" alt="Aspirant Avatar" />
+              <div class="profile-meta">
+                <span class="user-name">CAT Aspirant</span>
+                <span class="user-role">Premium Learner</span>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <!-- Dynamic Tabs -->
+        <div class="tab-content active" id="tab-dashboard">
+          <!-- Hero Section -->
+          <section class="hero-banner">
+            <div class="hero-bg-glow"></div>
+            <div class="hero-content">
+              <span class="hero-eyebrow">PREPARATION BLUEPRINT</span>
+              <h2>Welcome back, Aspirant</h2>
+              <p>Your personalized study plan has been compiled. Solve arena challenges, flip concept cards, and master timed sectional mocks.</p>
+              
+              <div class="current-focus-box">
+                <div class="focus-meta">
+                  <span class="focus-tag">CURRENT FOCUS</span>
+                  <h3 id="dashboard-focus-title">Loading focus plan...</h3>
+                  <p id="dashboard-focus-desc">Analyzing your performance to generate next study path...</p>
+                </div>
+                <button class="btn btn-primary" onclick="switchTab('arena')">Continue Learning</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Grid Section -->
+          <div class="dashboard-grid">
+            
+            <!-- Puter Panel -->
+            <div class="glass-card puter-card">
+              <div class="card-header">
+                <div class="card-title-row">
+                  <span class="card-icon">⚡</span>
+                  <h3>Puter AI Core</h3>
+                </div>
+                <span class="card-subtitle">Zero-API key free unlimited fallback models</span>
+              </div>
+              <div class="card-body">
+                <p class="puter-info-text">Connect Puter AI to unlock high-speed fallback generations in case the primary Gemini API is busy or overloaded.</p>
+                <div class="puter-action-row" id="puter-connection-panel">
+                  <button class="btn btn-secondary w-full" id="btn-puter-connect">
+                    <span>Connect Puter AI Account</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="glass-card">
+              <div class="card-header">
+                <div class="card-title-row">
+                  <span class="card-icon">📈</span>
+                  <h3>Performance At-A-Glance</h3>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="quick-stats-row">
+                  <div class="q-stat" onclick="switchTab('mocks')">
+                    <span class="q-val" id="stat-mocks-taken">0</span>
+                    <span class="q-lbl">Mocks Completed</span>
+                  </div>
+                  <div class="q-stat" onclick="switchTab('arena')">
+                    <span class="q-val" id="stat-arena-attempts">0</span>
+                    <span class="q-lbl">Arena Solves</span>
+                  </div>
+                  <div class="q-stat" onclick="switchTab('flashcards')">
+                    <span class="q-val" id="stat-flashcards-reviewed">0</span>
+                    <span class="q-lbl">Flashcard Cards</span>
+                  </div>
+                  <div class="q-stat" onclick="switchTab('analytics')">
+                    <span class="q-val text-primary" id="stat-global-accuracy">0%</span>
+                    <span class="q-lbl">Global Accuracy</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Recent Activity -->
+          <section class="activity-section">
+            <div class="section-header">
+              <h3>Recent Practice Logs</h3>
+              <button class="btn-text" onclick="switchTab('analytics')">VIEW COMPLETE STATS</button>
+            </div>
+            <div class="activity-timeline" id="dashboard-activity-list">
+              <div class="empty-state">Loading your practice logs...</div>
+            </div>
+          </section>
+        </div>
+
+        <div class="tab-content" id="tab-arena">
+          <!-- Arena Screen -->
+          <div class="arena-layout">
+            
+            <!-- Left Side: Problem Card -->
+            <div class="arena-main">
+              <div class="glass-card problem-card">
+                <div class="problem-meta-bar">
+                  <div class="problem-badge" id="arena-bot-badge">
+                    <span class="ai-sparkle">🤖</span>
+                    <span id="arena-source-label">Gemini AI</span>
+                  </div>
+                  <div class="problem-timer">
+                    <span class="timer-icon">⏳</span>
+                    <span id="arena-timer">00:00</span>
+                  </div>
+                </div>
+
+                <div class="problem-body">
+                  <p class="problem-text" id="arena-question-text">Loading the next logical puzzle...</p>
+                  
+                  <div class="options-container" id="arena-options-container">
+                    <!-- Options injected here -->
+                  </div>
+                </div>
+
+                <div class="problem-footer">
+                  <button class="btn btn-outline" id="btn-show-hint">
+                    <span class="btn-icon">💡</span> Show Concept Hint
+                  </button>
+                  <div class="action-buttons">
+                    <button class="btn btn-secondary" id="btn-clear-selection" disabled>Clear</button>
+                    <button class="btn btn-primary" id="btn-submit-answer" disabled>Submit Answer</button>
+                  </div>
+                </div>
+
+                <!-- Hint Drawer -->
+                <div class="hint-drawer" id="arena-hint-drawer">
+                  <div class="hint-header">
+                    <h4>💡 Concept Guide</h4>
+                    <button class="btn-close" id="btn-close-hint">×</button>
+                  </div>
+                  <p id="arena-hint-text">Use options elimination and basic equations.</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Right Side: Arena Info -->
+            <div class="arena-sidebar">
+              <!-- Active Engine Pill -->
+              <div class="glass-card">
+                <div class="card-header">
+                  <div class="card-title-row">
+                    <span class="card-icon">⚡</span>
+                    <h3>Solver Dashboard</h3>
+                  </div>
+                </div>
+                <div class="card-body stack">
+                  <div class="stat-tile">
+                    <span class="tile-label">Arena Score</span>
+                    <span class="tile-value" id="arena-score">0 / 0</span>
+                    <span class="tile-sub">Questions answered correctly</span>
+                  </div>
+                  
+                  <div class="stat-tile">
+                    <span class="tile-label">Average Speed</span>
+                    <span class="tile-value" id="arena-avg-speed">0s</span>
+                    <span class="tile-sub">Per question limit: 2 mins</span>
+                  </div>
+                  
+                  <button class="btn btn-primary w-full" id="btn-next-arena" style="margin-top: 10px;">
+                    <span>Load Next Challenge</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="tab-content" id="tab-flashcards">
+          <!-- Flashcards Screen -->
+          <div class="flashcard-deck-selector">
+            <span class="selector-label">Choose Topic:</span>
+            <div class="topic-scroll" id="flashcard-topics">
+              <!-- Topic tabs injected dynamically -->
+            </div>
+          </div>
+
+          <div class="flashcard-workspace">
+            <!-- 3D Flippable Card -->
+            <div class="flashcard-scene">
+              <div class="flashcard-card" id="flashcard-card">
+                <div class="flashcard-face flashcard-front">
+                  <div class="card-inner-wrapper">
+                    <span class="card-topic-tag" id="card-topic">Algebra</span>
+                    <p class="card-question-text" id="card-front">Loading cards...</p>
+                    <span class="card-tip">Click card or press Space to Reveal</span>
+                  </div>
+                </div>
+                <div class="flashcard-face flashcard-back">
+                  <div class="card-inner-wrapper">
+                    <span class="card-topic-tag">Concept Formula / Strategy</span>
+                    <p class="card-answer-text" id="card-back">Checking details...</p>
+                    <div class="card-explanation-box">
+                      <strong>EXPLANATION:</strong>
+                      <p id="card-explanation">Explanation here</p>
+                    </div>
+                    <span class="card-tip">Click card to Flip Back</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card Controls -->
+            <div class="flashcard-controls">
+              <div class="deck-progress">
+                <span id="card-index-label">Card 1 of 10</span>
+                <div class="progress-bar-container">
+                  <div class="progress-bar-fill" id="card-progress-bar" style="width: 10%;"></div>
+                </div>
+              </div>
+
+              <div class="rating-controls" id="flashcard-rating-panel">
+                <button class="btn btn-easy" data-confidence="easy">🟢 Easy (Pass)</button>
+                <button class="btn btn-medium" data-confidence="medium">🟡 Medium</button>
+                <button class="btn btn-hard" data-confidence="hard">🔴 Hard (Flag)</button>
+              </div>
+
+              <div class="action-controls">
+                <button class="btn btn-outline" id="btn-prev-card">← Back</button>
+                <button class="btn btn-primary" id="btn-next-card">Next Card →</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tab-mocks">
+          <!-- Mock Exams Screen -->
+          <div class="mock-workspace" id="mock-intro-screen">
+            <div class="glass-card mock-intro-card">
+              <div class="mock-hero-icon">📝</div>
+              <h2>CAT Sectional Mock Simulator</h2>
+              <p>Replicates the high-pressure environment of the CAT exam. Take a full 6-question sectional mock combining VARC, DILR, and Quant topics with custom timers.</p>
+              
+              <div class="exam-rules">
+                <div class="rule-item">
+                  <span class="rule-bullet">⏱️</span>
+                  <div>
+                    <strong>40 Minutes Limit</strong>
+                    <p>Standard mock duration matching sectional test scales.</p>
+                  </div>
+                </div>
+                <div class="rule-item">
+                  <span class="rule-bullet">🎛️</span>
+                  <div>
+                    <strong>Question Palette</strong>
+                    <p>Live tracking of visited, marked, and submitted answers.</p>
+                  </div>
+                </div>
+                <div class="rule-item">
+                  <span class="rule-bullet">🎯</span>
+                  <div>
+                    <strong>CAT Calibration</strong>
+                    <p>Graded and analyzed by our engine post-submission.</p>
+                  </div>
+                </div>
+              </div>
+
+              <button class="btn btn-primary btn-large" id="btn-start-mock">Start Exam Simulation</button>
+            </div>
+          </div>
+
+          <!-- Live Mock Console (Hidden initially) -->
+          <div class="mock-console" id="mock-console-screen" style="display: none;">
+            <div class="mock-console-header">
+              <div class="console-title">
+                <span class="badge-live">LIVE TEST</span>
+                <span class="console-subject">Sectional practice exam</span>
+              </div>
+              <div class="console-timer">
+                <span class="timer-bullet">⏱️</span>
+                <span id="mock-timer-display">40:00</span>
+              </div>
+            </div>
+
+            <div class="mock-console-layout">
+              <!-- Left Column: Reading/Question Pane -->
+              <div class="mock-question-pane">
+                
+                <div class="mock-passage-container" id="mock-passage-box" style="display: none;">
+                  <div class="passage-header">Read the following passage to answer the question:</div>
+                  <div class="passage-text" id="mock-passage-text">Loading passage...</div>
+                </div>
+
+                <div class="glass-card mock-question-card">
+                  <div class="question-header-row">
+                    <span class="section-pill" id="mock-question-section">Quants</span>
+                    <span class="index-label" id="mock-question-index">Question 1 of 6</span>
+                    <span class="difficulty-indicator" id="mock-question-diff">Medium Difficulty</span>
+                  </div>
+                  
+                  <div class="question-prompt" id="mock-question-prompt">
+                    Loading question...
+                  </div>
+
+                  <div class="options-container" id="mock-options-container">
+                    <!-- Injected options -->
+                  </div>
+
+                  <div class="console-actions">
+                    <button class="btn btn-outline" id="btn-mock-review">🔖 Mark for Review</button>
+                    <div class="console-main-actions">
+                      <button class="btn btn-secondary" id="btn-mock-clear">Clear</button>
+                      <button class="btn btn-primary" id="btn-mock-save-next">Save & Next</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Column: Navigation Palette -->
+              <div class="mock-palette-pane">
+                <div class="glass-card palette-card">
+                  <h3>Question Palette</h3>
+                  
+                  <div class="palette-grid" id="mock-palette-grid">
+                    <!-- Palette items injected dynamically -->
+                  </div>
+
+                  <div class="palette-legend">
+                    <div class="legend-item"><span class="leg bg-answered"></span> <span>Answered</span></div>
+                    <div class="legend-item"><span class="leg bg-visited"></span> <span>Visited</span></div>
+                    <div class="legend-item"><span class="leg bg-review"></span> <span>Marked</span></div>
+                    <div class="legend-item"><span class="leg bg-unvisited"></span> <span>Unvisited</span></div>
+                  </div>
+
+                  <button class="btn btn-danger w-full" id="btn-submit-mock" style="margin-top: 18px;">
+                    Submit Sectional
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-content" id="tab-analytics">
+          <!-- Analytics Screen -->
+          <div class="analytics-layout">
+            
+            <div class="analytics-row">
+              <!-- Accuracy Gauge -->
+              <div class="glass-card metric-gauge-card">
+                <div class="card-header">
+                  <h3>Global Proficiency</h3>
+                </div>
+                <div class="card-body center">
+                  <div class="circular-progress">
+                    <svg viewBox="0 0 100 100">
+                      <circle cx="50" cy="50" r="42" class="circle-bg"></circle>
+                      <circle cx="50" cy="50" r="42" class="circle-fill" id="analytics-accuracy-circle" style="stroke-dashoffset: 263;"></circle>
+                    </svg>
+                    <div class="circular-value" id="analytics-accuracy-value">0%</div>
+                  </div>
+                  <span class="gauge-sub" id="analytics-accuracy-subtitle">Study more to unlock rating accuracy</span>
+                </div>
+              </div>
+
+              <!-- Topic breakdown charts -->
+              <div class="glass-card flex-1">
+                <div class="card-header">
+                  <h3>Section Mastery Rating</h3>
+                </div>
+                <div class="card-body">
+                  <div class="bar-chart-container">
+                    <div class="chart-row">
+                      <span class="row-label">VARC</span>
+                      <div class="chart-bar-bg">
+                        <div class="chart-bar-fill fill-varc" id="bar-varc" style="width: 0%;"></div>
+                      </div>
+                      <span class="row-value" id="val-varc">0%</span>
+                    </div>
+
+                    <div class="chart-row">
+                      <span class="row-label">DILR</span>
+                      <div class="chart-bar-bg">
+                        <div class="chart-bar-fill fill-dilr" id="bar-dilr" style="width: 0%;"></div>
+                      </div>
+                      <span class="row-value" id="val-dilr">0%</span>
+                    </div>
+
+                    <div class="chart-row">
+                      <span class="row-label">Quants</span>
+                      <div class="chart-bar-bg">
+                        <div class="chart-bar-fill fill-quant" id="bar-quant" style="width: 0%;"></div>
+                      </div>
+                      <span class="row-value" id="val-quant">0%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- In-Depth History -->
+            <div class="glass-card history-card">
+              <div class="card-header">
+                <h3>Historical Logs</h3>
+              </div>
+              <div class="card-body">
+                <div class="history-list" id="analytics-history-list">
+                  <!-- Injected history -->
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </main>
+    </div>
+
+    <!-- Inject dynamic config -->
+    <script src="./config.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
