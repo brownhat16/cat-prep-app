@@ -328,6 +328,10 @@ async function loadNextArenaQuestion() {
   const hintText = document.getElementById("arena-hint-text");
   const btnSubmit = document.getElementById("btn-submit-answer");
   const btnClear = document.getElementById("btn-clear-selection");
+  const btnNext = document.getElementById("btn-next-arena");
+
+  // Prevent duplicate concurrent requests by disabling next button
+  if (btnNext) btnNext.disabled = true;
 
   // Reset states
   clearInterval(arenaTimerInterval);
@@ -423,7 +427,11 @@ async function loadNextArenaQuestion() {
     `;
   }).join("");
 
-  // Start timer
+  // Re-enable next button
+  if (btnNext) btnNext.disabled = false;
+
+  // Start timer fresh, ensuring any previous interval is cleared again in case of async overlap
+  clearInterval(arenaTimerInterval);
   arenaTimerInterval = setInterval(() => {
     arenaElapsedSeconds++;
     document.getElementById("arena-timer").textContent = formatSeconds(arenaElapsedSeconds);
@@ -726,6 +734,9 @@ let mockVisitedList = {}; // questionId -> bool
 let mockCurrentIndex = 0;
 
 function startMockSimulation() {
+  // Clear any existing active timer to prevent duplicate intervals running concurrently
+  clearInterval(mockTimerInterval);
+
   mockActive = true;
   mockTimeLeft = 40 * 60;
   mockAnswers = {};
